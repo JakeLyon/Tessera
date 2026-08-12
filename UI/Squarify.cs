@@ -7,18 +7,46 @@ namespace Clone.UI;
 public readonly record struct TmRect(FsNode Node, Rect Bounds, int Depth, bool IsLeaf);
 
 /// <summary>
+/// How far the layout is allowed to go. A full drive produces more rectangles than
+/// can be seen or hit-tested cheaply, so the recursion stops on all four counts:
+/// too small to read, too deep to matter, or simply too many.
+/// </summary>
+/// <param name="MinSide">Don't recurse into a rectangle narrower or shorter than this.</param>
+/// <param name="MinArea">Don't recurse into a rectangle smaller than this many square px.</param>
+/// <param name="MaxDepth">Hard cap on nesting depth.</param>
+/// <param name="MaxRects">Hard cap on the total number of rectangles emitted.</param>
+public readonly record struct TreemapLimits(double MinSide, double MinArea, int MaxDepth, int MaxRects)
+{
+    public static readonly TreemapLimits Low = new(8, 64, 8, 5_000);
+
+    /// <summary>The default. These four values are what the layout has always used.</summary>
+    public static readonly TreemapLimits Medium = new(4, 20, 24, 20_000);
+
+    public static readonly TreemapLimits High = new(2, 8, 40, 100_000);
+}
+
+/// <summary>
 /// Squarified treemap layout (Bruls, Huizing, van Wijk). Pure geometry — no UI state.
 /// Rectangles are appended parent-first, so painting in list order layers children
 /// over parents and a backwards scan hit-tests deepest-first.
 /// </summary>
 public static class Squarify
 {
-    private const double MinSide = 4;        // don't recurse into rects smaller than this
-    private const double MinArea = 20;
-    private const int MaxDepth = 24;
+    /// <summary>
+    /// Lay out <paramref name="dir"/>'s children inside <paramref name="rect"/> and recurse.
+    /// Returns true when <see cref="TreemapLimits.MaxRects"/> cut the output short — the
+    /// caller is showing an incomplete picture and needs to say so.
+    /// </summary>
+    public static bool Layout(FsNode dir, Rect rect, int depth, List<TmRect> output,
+        TreemapLimits? limits = null)
+    {
+        var effective = limits ?? TreemapLimits.Medium;
+        LayoutCore(dir, rect, depth, output, effective);
+        return output.Count >= effective.MaxRects;
+    }
 
-    /// <summary>Lay out <paramref name="dir"/>'s children inside <paramref name="rect"/> and recurse.</summary>
-    public static void Layout(FsNode dir, Rect rect, int depth, List<TmRect> output)
+    private static void LayoutCore(FsNode dir, Rect rect, int depth, List<TmRect> output,
+        TreemapLimits limits)
     {
         var children = dir.Children;
         if (children is null || children.Length == 0 || rect.Width <= 1 || rect.Height <= 1)
@@ -44,7 +72,7 @@ public static class Squarify
             {
                 // Sorted descending: everything from here on is zero-size. Flush and stop.
                 if (i > rowStart)
-                    FlushRow(children, rowStart, i, rowArea, scale, ref x, ref y, ref w, ref h, depth, output);
+                    FlushRow(children, rowStart, i, rowArea, scale, ref x, ref y, ref w, ref h, depth, output, limits);
                 return;
             }
 
@@ -63,13 +91,13 @@ public static class Squarify
             }
             else
             {
-                FlushRow(children, rowStart, i, rowArea, scale, ref x, ref y, ref w, ref h, depth, output);
+                FlushRow(children, rowStart, i, rowArea, scale, ref x, ref y, ref w, ref h, depth, output, limits);
                 rowStart = i;
                 rowArea = area; rowMin = area; rowMax = area;
             }
         }
 
-        FlushRow(children, rowStart, children.Length, rowArea, scale, ref x, ref y, ref w, ref h, depth, output);
+        FlushRow(children, rowStart, children.Length, rowArea, scale, ref x, ref y, ref w, ref h, depth, output, limits);
     }
 
     private static double WorstAspect(double rowArea, double minArea, double maxArea, double side)
@@ -81,7 +109,8 @@ public static class Squarify
 
     /// <summary>Place children[start..end) as one strip along the shorter side of the remaining rect.</summary>
     private static void FlushRow(FsNode[] children, int start, int end, double rowArea, double scale,
-        ref double x, ref double y, ref double w, ref double h, int depth, List<TmRect> output)
+        ref double x, ref double y, ref double w, ref double h, int depth, List<TmRect> output,
+        TreemapLimits limits)
     {
         if (end <= start || rowArea <= 0 || w <= 0 || h <= 0)
             return;
@@ -93,6 +122,12 @@ public static class Squarify
         double offset = 0;
         for (int i = start; i < end; i++)
         {
+            // The hard cap. Only reached on huge single-level fan-out — a directory
+            // with more files than the whole budget — where a truncated row is the
+            // only option left. The recursion gate below handles every other case.
+            if (output.Count >= limits.MaxRects)
+                return;
+
             var child = children[i];
             double length = child.Size * scale / thickness;
             var bounds = vertical
@@ -100,15 +135,19 @@ public static class Squarify
                 : new Rect(x + offset, y, length, thickness);
             offset += length;
 
-            bool recurse = child.IsDir && depth < MaxDepth
-                && bounds.Width >= MinSide + 2 && bounds.Height >= MinSide + 2
-                && bounds.Width * bounds.Height >= MinArea
-                && child.Children is { Length: > 0 };
+            // Running out of budget stops the descent exactly as a too-small rectangle
+            // does: the node is still emitted, marked IsLeaf, and painted as a solid
+            // block. Levels that are drawn stay complete — no holes.
+            bool recurse = child.IsDir && depth < limits.MaxDepth
+                && bounds.Width >= limits.MinSide + 2 && bounds.Height >= limits.MinSide + 2
+                && bounds.Width * bounds.Height >= limits.MinArea
+                && child.Children is { Length: > 0 }
+                && output.Count < limits.MaxRects - 1;
 
             output.Add(new TmRect(child, bounds, depth, !recurse));
 
             if (recurse)
-                Layout(child, bounds.Deflate(1), depth + 1, output);
+                LayoutCore(child, bounds.Deflate(1), depth + 1, output, limits);
         }
 
         if (vertical) { x += thickness; w -= thickness; }

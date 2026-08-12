@@ -20,6 +20,7 @@ public sealed class MainWindow : Window
     private readonly Button _topButton;
     private readonly TextBlock _crumb;
     private readonly TextBlock _status;
+    private readonly TextBlock _detailNote;
     private readonly TreeDataGrid _tree;
     private readonly TreemapControl _treemap;
     private readonly DispatcherTimer _progressTimer;
@@ -136,9 +137,19 @@ public sealed class MainWindow : Window
 
         // ---- Status bar ----
         _status = new TextBlock { Margin = new Thickness(10, 5), Text = "Pick a drive or folder to scan." };
+        // A separate control from _status: the scan summary lives there and must not be
+        // overwritten every time the treemap re-lays out.
+        _detailNote = new TextBlock
+        {
+            Margin = new Thickness(10, 5),
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = 0.75,
+            Text = "",
+        };
+        DockPanel.SetDock(_detailNote, Dock.Right);
         var statusHost = new Border
         {
-            Child = _status,
+            Child = new DockPanel { Children = { _detailNote, _status } },
             BorderThickness = new Thickness(0, 1, 0, 0),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80)),
         };
@@ -154,6 +165,7 @@ public sealed class MainWindow : Window
             _ctxNode = n;
             SelectFromTreemap(n, drill: false);
         };
+        _treemap.LayoutTruncatedChanged += OnLayoutTruncatedChanged;
 
         var center = new Grid
         {
@@ -172,7 +184,11 @@ public sealed class MainWindow : Window
         center.Children.Add(splitter);
         center.Children.Add(_treemap);
 
-        Content = new DockPanel { Children = { toolbar, statusHost, center } };
+        // ---- Menu bar (docked above the toolbar) ----
+        var menuBar = BuildMenuBar();
+        DockPanel.SetDock(menuBar, Dock.Top);
+
+        Content = new DockPanel { Children = { menuBar, toolbar, statusHost, center } };
 
         // ---- Context menu (shared by tree and treemap) ----
         var menu = BuildContextMenu();
@@ -414,6 +430,62 @@ public sealed class MainWindow : Window
     // =====================================================================
     // Context menu / node operations
     // =====================================================================
+
+    // =====================================================================
+    // Menu bar
+    // =====================================================================
+
+    internal readonly record struct DetailPreset(string Label, string Hint, TreemapLimits Limits);
+
+    internal static readonly DetailPreset[] DetailPresets =
+    [
+        new("Low", "fewest rectangles, fastest", TreemapLimits.Low),
+        new("Medium", "the default", TreemapLimits.Medium),
+        new("High", "most detail, slowest", TreemapLimits.High),
+    ];
+
+    private Menu BuildMenuBar()
+    {
+        var detail = new MenuItem { Header = "_Detail" };
+        foreach (var preset in DetailPresets)
+        {
+            var captured = preset;
+            var item = new MenuItem
+            {
+                Header = $"{preset.Label} — {preset.Hint}",
+                ToggleType = MenuItemToggleType.Radio,
+                GroupName = "TreemapDetail",
+                IsChecked = preset.Limits.Equals(_treemap.Limits),
+            };
+            item.Click += (_, _) => Guarded("Changing detail", () =>
+            {
+                _treemap.Limits = captured.Limits;
+                return Task.CompletedTask;
+            });
+            detail.Items.Add(item);
+            _detailItems.Add(item);
+        }
+
+        var view = new MenuItem { Header = "_View" };
+        view.Items.Add(detail);
+        return new Menu { Items = { view } };
+    }
+
+    private readonly List<MenuItem> _detailItems = new();
+
+    /// <summary>The detail menu items, in preset order (test seam).</summary>
+    internal IReadOnlyList<MenuItem> DetailMenuItems => _detailItems;
+
+    internal string DetailNoteText => _detailNote.Text ?? "";
+
+    /// <summary>
+    /// A limit that quietly hid part of the disk would defeat the point of the app, so
+    /// say plainly that the view is incomplete and how to get the rest of it.
+    /// </summary>
+    private void OnLayoutTruncatedChanged(bool truncated) =>
+        _detailNote.Text = truncated
+            ? $"Showing the first {Format.Count(_treemap.Limits.MaxRects)} rectangles — raise View ▸ Detail for more."
+            : "";
 
     private ContextMenu BuildContextMenu()
     {

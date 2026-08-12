@@ -26,6 +26,7 @@ public sealed class TreemapControl : Control
     // per layout change; hover/selection frames just blit it and draw two outlines.
     private RenderTargetBitmap? _scene;
     private bool _sceneDirty = true;
+    private TreemapLimits _limits = TreemapLimits.Medium;
 
     private static readonly Dictionary<string, IBrush> s_extBrushes = new();
     private static readonly IBrush s_dirFill = new SolidColorBrush(Color.FromRgb(0x3a, 0x3f, 0x46));
@@ -40,6 +41,12 @@ public sealed class TreemapControl : Control
     public event Action<FsNode>? NodeDoubleClicked;
     public event Action<FsNode>? NodeRightClicked;
     public event Action<FsNode?>? HoverChanged;
+    /// <summary>
+    /// Raised when the layout starts or stops being cut short by the rectangle cap.
+    /// The layout is lazy — recomputed during render — so this is the only way for the
+    /// window to learn that the view is incomplete without polling every frame.
+    /// </summary>
+    public event Action<bool>? LayoutTruncatedChanged;
 
     public TreemapControl()
     {
@@ -59,6 +66,21 @@ public sealed class TreemapControl : Control
             InvalidateLayout();
         }
     }
+
+    /// <summary>How far the layout may go. Changing it re-lays out on the next render.</summary>
+    public TreemapLimits Limits
+    {
+        get => _limits;
+        set
+        {
+            if (_limits.Equals(value)) return;
+            _limits = value;
+            InvalidateLayout();
+        }
+    }
+
+    /// <summary>True when the rectangle cap cut the last layout short.</summary>
+    public bool LayoutTruncated { get; private set; }
 
     public FsNode? SelectedNode
     {
@@ -84,10 +106,18 @@ public sealed class TreemapControl : Control
         if (_layoutDirty)
         {
             _layout.Clear();
-            if (_root is not null)
-                Squarify.Layout(_root, new Rect(Bounds.Size).Deflate(1), 0, _layout);
+            bool truncated = _root is not null
+                && Squarify.Layout(_root, new Rect(Bounds.Size).Deflate(1), 0, _layout, _limits);
             _layoutDirty = false;
             _sceneDirty = true;
+
+            // Only on a transition: EnsureLayout runs per render, and the window would
+            // otherwise rewrite the status bar on every frame.
+            if (truncated != LayoutTruncated)
+            {
+                LayoutTruncated = truncated;
+                LayoutTruncatedChanged?.Invoke(truncated);
+            }
         }
         return _layout;
     }

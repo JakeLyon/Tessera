@@ -10,6 +10,7 @@ A lightweight SpaceMonger/TreeSize-style disk space analyzer for Windows, built 
 - **Squarified treemap** (Bruls et al.) — rectangle area ∝ file size, colored by file extension, click to select, double-click to drill in, Up button and breadcrumb to navigate back. Rendering is cached to a bitmap, so hover/selection is instant even on dense views.
 - **Size-sorted tree** with size and %-of-parent columns (virtualized `TreeDataGrid`, handles 10k-child folders smoothly).
 - **Context menu** — open in Explorer, copy path, delete to Recycle Bin, rescan a single subtree (sizes re-propagate to the root without a full rescan), top-100 files under a folder.
+- **Detail limits** — **View ▸ Detail** picks Low / Medium / High, trading rectangles for responsiveness. A drive scan can otherwise lay out far more rectangles than are readable, and every one is scanned on each mouse move. When a limit hides part of the view the status bar says so, so the treemap never quietly under-reports.
 - **Top 100 largest files** — flat list for quick wins, double-click to reveal in Explorer.
 - **Safe by construction** — junctions/symlinks are shown but never followed (no cycles, no double-counting); access-denied folders are flagged and counted, never fatal.
 - **Headless CLI mode** — `Clone.exe --scan <path>` prints totals without opening a window.
@@ -44,7 +45,7 @@ Add `--self-contained true` instead for machines without the runtime (~90 MB). `
 
 ## Tests
 
-223 tests in three layers, all runnable without elevation:
+244 tests in three layers, all runnable without elevation:
 
 ```powershell
 dotnet test
@@ -66,7 +67,7 @@ Models/FsNode.cs         lean scan-tree node (~70 B + name per entry; millions o
 Models/FsTreeOps.cs      UI-free tree mutations: delete splice, rescan splice, top-K
 Scanning/Scanner.cs      parallel enumerator-based scanner + aggregate/sort post-pass
 Scanning/ScanProgress.cs lock-free counters, polled by the UI on a timer
-UI/Squarify.cs           pure squarified-treemap layout algorithm
+UI/Squarify.cs           pure squarified-treemap layout algorithm + TreemapLimits presets
 UI/TreemapControl.cs     custom control: cached layout + cached scene bitmap, hit-testing
 UI/MainWindow.cs         toolbar, TreeDataGrid, treemap, selection-sync mediator
 UI/TopFilesWindow.cs     top-100 largest files list
@@ -84,3 +85,4 @@ Design notes:
 - `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1 — the last MIT-licensed version**. 11.2.0+ requires a commercial AvaloniaUI license; don't bump it casually.
 - **Nothing fails silently.** The UI runs on `async void` event handlers, where a throw is unhandled by definition, so every menu and toolbar action goes through `MainWindow.Guarded` and lands in the status bar. `Dispatcher.UIThread.UnhandledException` catches whatever slips past and keeps the window alive. Nothing is written to disk — the app reports and carries on.
 - The scanner's workers share a pending-directory counter, and a worker that fails without decrementing it strands the rest in a spin loop. The decrement lives in a `finally` for that reason; `Scanner.OnDirectoryEnter` exists so the case stays regression-tested.
+- Detail limits are **session-only** by design — the app writes nothing outside its own folder. `TreemapLimits.Medium` holds the cutoffs the layout has always used, so the default view is unchanged; only the rectangle cap is new.

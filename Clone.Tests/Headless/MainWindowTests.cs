@@ -219,4 +219,73 @@ public class MainWindowTests
 
         Assert.Equal(1, fired);
     }
+
+    // =====================================================================
+    // View ▸ Detail
+    // =====================================================================
+
+    [AvaloniaFact]
+    public void DetailMenu_HasOneItemPerPreset_MediumCheckedByDefault()
+    {
+        var (window, _) = Host();
+
+        Assert.Equal(MainWindow.DetailPresets.Length, window.DetailMenuItems.Count);
+        Assert.Equal(TreemapLimits.Medium, window.Treemap.Limits);
+
+        var checkedItems = window.DetailMenuItems.Where(i => i.IsChecked).ToList();
+        var only = Assert.Single(checkedItems);
+        Assert.Contains("Medium", only.Header!.ToString());
+    }
+
+    [AvaloniaFact]
+    public void DetailMenu_ChoosingAPreset_AppliesItToTheTreemap()
+    {
+        var (window, _) = Host();
+
+        for (int i = 0; i < MainWindow.DetailPresets.Length; i++)
+        {
+            var item = window.DetailMenuItems[i];
+            item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+
+            Assert.Equal(MainWindow.DetailPresets[i].Limits, window.Treemap.Limits);
+        }
+    }
+
+    [AvaloniaFact]
+    public void DetailMenu_ItemsShareARadioGroup_SoTheChoiceIsExclusive()
+    {
+        var (window, _) = Host();
+
+        Assert.All(window.DetailMenuItems, item =>
+        {
+            Assert.Equal(MenuItemToggleType.Radio, item.ToggleType);
+            Assert.Equal("TreemapDetail", item.GroupName);
+        });
+    }
+
+    [AvaloniaFact]
+    public void TruncationNote_AppearsAndClears_WithoutTouchingTheScanSummary()
+    {
+        var (window, _) = Host();
+        // More files in one directory than Low's whole rectangle budget.
+        var wide = TestTree.Seal(TestTree.Dir(@"C:\wide",
+            Enumerable.Range(0, TreemapLimits.Low.MaxRects * 2)
+                .Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
+        window.LoadTree(wide);
+
+        string summary = window.StatusText;
+        Assert.Equal("", window.DetailNoteText);
+
+        window.Treemap.Limits = TreemapLimits.Low;
+        window.Treemap.EnsureLayout();
+
+        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(summary, window.StatusText);   // the scan summary must survive
+
+        window.Treemap.Limits = TreemapLimits.High;
+        window.Treemap.EnsureLayout();
+
+        Assert.Equal("", window.DetailNoteText);
+        Assert.Equal(summary, window.StatusText);
+    }
 }
