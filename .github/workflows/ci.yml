@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # Windows-only: the scanner and shell integration are Windows-first, and the
+    # suite's [WindowsFact] cases would silently skip anywhere else.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Tessera.slnx
+
+      - name: Build
+        # Warnings are the review signal this project has kept at zero; keep it that way.
+        run: dotnet build Tessera.slnx --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test Tessera.slnx --configuration Release --no-build --logger "trx;LogFileName=results.trx" --results-directory TestResults
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: warn
+
+  package:
+    # Proves the shipping artifact still builds, and hands you a downloadable exe for
+    # every commit on main without cutting a release.
+    needs: build-and-test
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish self-contained single file
+        run: >
+          dotnet publish Tessera.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=none
+          --output publish
+
+      - name: Smoke-test the CLI
+        shell: pwsh
+        run: |
+          $exe = "publish/Tessera.exe"
+          $out = & $exe --scan "$env:WINDIR\Fonts"
+          if ($LASTEXITCODE -ne 0) { throw "scan exited $LASTEXITCODE" }
+          if ($out -notmatch 'files=\d+') { throw "no totals in output: $out" }
+          & $exe --scan | Out-Null
+          if ($LASTEXITCODE -ne 2) { throw "missing-path case exited $LASTEXITCODE, expected 2" }
+          Write-Host "CLI smoke test passed"
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tessera-win-x64
+          path: |
+            publish/Tessera.exe
+            LICENSE
+            THIRD-PARTY-NOTICES.txt

@@ -1,8 +1,18 @@
-# Tessera — Disk Space Analyzer
+<p align="center">
+  <img src="docs/tessera.ico" width="96" alt="Tessera">
+</p>
 
-A lightweight SpaceMonger/TreeSize-style disk space analyzer for Windows, built with .NET 10 and Avalonia. Scans a drive or folder and shows where the space went: a size-sorted folder tree on the left, a squarified treemap on the right, kept in sync both ways.
+<h1 align="center">Tessera</h1>
+
+<p align="center"><strong>See what's eating your disk. Reclaim it in minutes.</strong></p>
+
+Tessera is a fast disk space analyzer for Windows 10 and 11. It scans a drive or folder and turns it into a picture you can actually read: every file becomes a rectangle sized by the space it takes, so the things worth deleting are the things you notice first. A full 1.1-million-file `C:` scan finishes in around 20 seconds.
+
+No installer, no account, no telemetry. One file, and it runs.
 
 ![Tessera scanning C:\Program Files\dotnet](docs/screenshot.png)
+
+**[Download the latest release →](https://github.com/JakeLyon/Tessera/releases/latest)**
 
 ## Features
 
@@ -82,7 +92,13 @@ Design notes:
 - **Sizes are apparent sizes** (`FileSystemEntry.Length`), matching Explorer's "Size", not "Size on disk".
 - Full paths are never stored — they're rebuilt on demand by walking parent links; the root node holds the absolute path.
 - Every `Children` array is kept sorted by size descending; the treemap layout and the tree view both rely on this invariant, and `FsTreeOps` preserves it through every mutation.
-- `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1 — the last MIT-licensed version**. 11.2.0+ requires a commercial AvaloniaUI license; don't bump it casually.
+- `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1** simply because that is the version this was built and tested against. It is **MIT at every version** — the licence text lives in `licence.md` in the upstream repo; the NuGet packages just carry no licence metadata, which is why automated scanners report it as "unknown". The upstream repo is **archived**, so treat it as a frozen dependency.
 - **Nothing fails silently.** The UI runs on `async void` event handlers, where a throw is unhandled by definition, so every menu and toolbar action goes through `MainWindow.Guarded` and lands in the status bar. `Dispatcher.UIThread.UnhandledException` catches whatever slips past and keeps the window alive. Nothing is written to disk — the app reports and carries on.
 - The scanner's workers share a pending-directory counter, and a worker that fails without decrementing it strands the rest in a spin loop. The decrement lives in a `finally` for that reason; `Scanner.OnDirectoryEnter` exists so the case stays regression-tested.
 - Detail limits are **session-only** by design — the app writes nothing outside its own folder. `TreemapLimits.Medium` holds the cutoffs the layout has always used, so the default view is unchanged; only the rectangle cap is new.
+
+## Licence
+
+Tessera is proprietary; see [LICENSE](LICENSE) for terms.
+
+Every third-party dependency is MIT-licensed, and MIT requires its notices to travel with any distributed copy. [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) carries them, and the build copies both files next to the executable — so anything you ship is compliant without a separate step. Three cases in there are worth knowing about: the TreeDataGrid packages declare no licence metadata (the grant is MIT, from the repo), the ANGLE natives are BSD-3-Clause, and the embedded Inter typeface is under the SIL Open Font Licence.

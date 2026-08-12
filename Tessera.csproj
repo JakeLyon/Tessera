@@ -7,15 +7,41 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>docs\tessera.ico</ApplicationIcon>
     <!-- Tessera.Tests lives in a subfolder; keep its sources out of the app's default glob. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);Tessera.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
+
+  <!-- Shipping identity. These populate the Win32 version resource, which is what
+       Explorer's Properties dialog and the SmartScreen prompt read. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>Tessera</Product>
+    <AssemblyTitle>Tessera</AssemblyTitle>
+    <Company>Jake Lyon</Company>
+    <Authors>Jake Lyon</Authors>
+    <Copyright>Copyright © 2026 Jake Lyon. All rights reserved.</Copyright>
+    <Description>Disk space analyzer for Windows. Scans a drive or folder and shows where the space went as a squarified treemap alongside a size-sorted tree.</Description>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- The MIT licences of the bundled dependencies require their notices to travel
+       with any distributed copy, so ship both files next to the executable. -->
+  <ItemGroup>
+    <None Include="LICENSE" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Tessera.Tests" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.20" />
-    <!-- 11.1.1 is the last MIT-licensed TreeDataGrid; 11.2.0+ requires a commercial AvaloniaUI license. -->
+    <!-- TreeDataGrid is MIT at every version (see licence.md in its repo); the packages
+         just carry no licence metadata, which is why scanners report it as unknown.
+         Pinned to 11.1.1 only because that is what this was built and tested against.
+         The upstream repo is archived, so nothing newer is coming. -->
     <PackageReference Include="Avalonia.Controls.TreeDataGrid" Version="11.1.1" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />

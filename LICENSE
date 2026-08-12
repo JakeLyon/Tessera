@@ -1,0 +1,82 @@
+Tessera — End User Licence Agreement
+Copyright (c) 2026 Jake Lyon. All rights reserved.
+
+IMPORTANT — READ CAREFULLY. This End User Licence Agreement ("Agreement") is a
+legal agreement between you (either an individual or a single entity, "You")
+and Jake Lyon ("Licensor") for the Tessera software product, which includes the
+executable, associated media, and printed or electronic documentation
+(the "Software").
+
+By installing, copying, or otherwise using the Software, You agree to be bound
+by the terms of this Agreement. If You do not agree, do not install or use the
+Software.
+
+1. GRANT OF LICENCE
+   Subject to Your compliance with this Agreement and payment of any applicable
+   fees, Licensor grants You a non-exclusive, non-transferable, revocable
+   licence to install and use the Software on devices You own or control, for
+   Your internal personal or business purposes.
+
+2. RESTRICTIONS
+   You may not:
+   (a) sell, rent, lease, sublicense, distribute, or otherwise transfer the
+       Software or make it available to any third party;
+   (b) reverse engineer, decompile, or disassemble the Software, except to the
+       extent that such activity is expressly permitted by applicable law
+       notwithstanding this limitation;
+   (c) remove, alter, or obscure any proprietary notices on or in the Software;
+   (d) use the Software to develop a competing product.
+
+3. OWNERSHIP
+   The Software is licensed, not sold. Licensor retains all right, title, and
+   interest in and to the Software, including all intellectual property rights.
+   This Agreement grants You no rights other than those expressly stated.
+
+4. THIRD-PARTY COMPONENTS
+   The Software incorporates third-party components licensed under their own
+   terms, which are reproduced in the accompanying THIRD-PARTY-NOTICES.txt file.
+   Those terms govern those components and, to the extent they conflict with
+   this Agreement in respect of those components, they prevail.
+
+5. DATA
+   The Software reads file and directory metadata on devices You direct it to
+   scan, in order to display disk usage. It performs this analysis locally. It
+   does not transmit Your file names, paths, or contents to Licensor or any
+   third party, and it writes no data outside its own installation directory.
+
+6. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. THE
+   ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH YOU.
+
+7. LIMITATION OF LIABILITY
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
+   LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL
+   DAMAGES WHATSOEVER, INCLUDING WITHOUT LIMITATION DAMAGES FOR LOSS OF DATA,
+   LOSS OF PROFITS, OR BUSINESS INTERRUPTION, ARISING OUT OF THE USE OF OR
+   INABILITY TO USE THE SOFTWARE.
+
+   THE SOFTWARE CAN MOVE FILES TO THE RECYCLE BIN AT YOUR DIRECTION. YOU ARE
+   RESPONSIBLE FOR VERIFYING WHAT YOU DELETE AND FOR MAINTAINING BACKUPS.
+
+   Nothing in this Agreement excludes or limits liability for death or personal
+   injury caused by negligence, for fraud or fraudulent misrepresentation, or
+   for any other liability that cannot be excluded or limited under applicable
+   law.
+
+8. TERMINATION
+   This Agreement terminates automatically if You breach it. On termination You
+   must cease all use of the Software and destroy all copies in Your possession.
+
+9. GOVERNING LAW
+   This Agreement is governed by the laws of England and Wales, and the courts
+   of England and Wales have exclusive jurisdiction, without prejudice to any
+   mandatory consumer protection rights available to You in Your country of
+   residence.
+
+10. ENTIRE AGREEMENT
+    This Agreement constitutes the entire agreement between the parties with
+    respect to the Software and supersedes all prior communications.
+
+For licensing enquiries, contact: <ADD CONTACT ADDRESS>

@@ -1,0 +1,221 @@
+THIRD-PARTY NOTICES FOR TESSERA
+================================================================================
+
+Tessera incorporates the third-party components listed below. Each is used under
+the licence stated, and the full text of each distinct licence appears at the end
+of this file.
+
+This notice is distributed with Tessera in order to satisfy the attribution
+requirements of those licences. It does not grant any rights in Tessera itself;
+see LICENSE for those terms.
+
+--------------------------------------------------------------------------------
+MANAGED COMPONENTS
+--------------------------------------------------------------------------------
+
+Avalonia (11.3.20)
+  Avalonia, Avalonia.Desktop, Avalonia.Skia, Avalonia.Win32, Avalonia.X11,
+  Avalonia.Native, Avalonia.FreeDesktop, Avalonia.Themes.Fluent,
+  Avalonia.Fonts.Inter, Avalonia.Remote.Protocol, Avalonia.BuildServices
+  Copyright (c) .NET Foundation and Contributors
+  Licence: MIT
+  https://github.com/AvaloniaUI/Avalonia
+
+Avalonia.Controls.TreeDataGrid (11.1.1)
+  Copyright (c) .NET Foundation and Contributors
+  Licence: MIT
+  https://github.com/AvaloniaUI/Avalonia.Controls.TreeDataGrid
+  Note: this NuGet package carries no licence metadata in its .nuspec. The MIT
+  grant above is taken from licence.md in the project's source repository.
+
+SkiaSharp (2.88.9)
+  Copyright (c) Microsoft Corporation
+  Licence: MIT
+  https://github.com/mono/SkiaSharp
+
+HarfBuzzSharp (8.3.1.1)
+  Copyright (c) Microsoft Corporation
+  Licence: MIT
+  https://github.com/mono/SkiaSharp
+
+System.Reactive (5.0.0)
+  Copyright (c) .NET Foundation and Contributors
+  Licence: MIT
+  https://github.com/dotnet/reactive
+
+MicroCom.Runtime (0.11.0)
+  Copyright (c) Nikita Tsukanov and contributors
+  Licence: MIT
+  https://github.com/kekekeks/MicroCom
+
+Tmds.DBus.Protocol (0.21.3)
+  Copyright (c) Tom Deseyn and contributors
+  Licence: MIT
+  https://github.com/tmds/Tmds.DBus
+
+--------------------------------------------------------------------------------
+NATIVE COMPONENTS
+--------------------------------------------------------------------------------
+
+These ship inside the self-contained executable and carry upstream licences of
+their own, distinct from the managed wrappers above.
+
+Skia (bundled via SkiaSharp.NativeAssets.*)
+  Copyright (c) Google LLC
+  Licence: BSD-3-Clause
+  https://skia.org
+
+HarfBuzz (bundled via HarfBuzzSharp.NativeAssets.*)
+  Copyright (c) Behdad Esfahbod and others
+  Licence: MIT ("Old MIT" variant)
+  https://github.com/harfbuzz/harfbuzz
+
+ANGLE (Avalonia.Angle.Windows.Natives 2.1.25547.20250602)
+  Copyright (c) Google Inc.
+  Licence: BSD-3-Clause
+  https://chromium.googlesource.com/angle/angle
+  Note: this NuGet package carries no licence metadata; the grant above is the
+  upstream ANGLE project licence.
+
+--------------------------------------------------------------------------------
+FONTS
+--------------------------------------------------------------------------------
+
+Inter (embedded in Avalonia.Fonts.Inter)
+  Copyright (c) The Inter Project Authors
+  Licence: SIL Open Font License, Version 1.1
+  https://github.com/rsms/inter
+  Note: the Avalonia.Fonts.Inter package is MIT-licensed, but the typeface it
+  embeds is licensed under the SIL OFL. Tessera uses the font as part of the
+  application's user interface and does not distribute it as a standalone font.
+
+--------------------------------------------------------------------------------
+RUNTIME
+--------------------------------------------------------------------------------
+
+.NET Runtime and Libraries (10.0)
+  Copyright (c) .NET Foundation and Contributors
+  Licence: MIT
+  https://github.com/dotnet/runtime
+  Included in the self-contained build of Tessera.
+
+================================================================================
+LICENCE TEXTS
+================================================================================
+
+--------------------------------------------------------------------------------
+The MIT License (MIT)
+--------------------------------------------------------------------------------
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+The 3-Clause BSD License (BSD-3-Clause)
+--------------------------------------------------------------------------------
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+SIL Open Font License, Version 1.1
+--------------------------------------------------------------------------------
+
+PREAMBLE
+
+The goals of the Open Font License (OFL) are to stimulate worldwide development
+of collaborative font projects, to support the font creation efforts of academic
+and linguistic communities, and to provide a free and open framework in which
+fonts may be shared and improved in partnership with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and redistributed
+freely as long as they are not sold by themselves. The fonts, including any
+derivative works, can be bundled, embedded, redistributed and/or sold with any
+software provided that any reserved names are not used by derivative works. The
+fonts and derivatives, however, cannot be released under any other type of
+license. The requirement for fonts to remain under this license does not apply to
+any document created using the fonts or their derivatives.
+
+PERMISSION & CONDITIONS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+the Font Software, to use, study, copy, merge, embed, modify, redistribute, and
+sell modified and unmodified copies of the Font Software, subject to the
+following conditions:
+
+1) Neither the Font Software nor any of its individual components, in Original
+or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy contains
+the above copyright notice and this license. These can be included either as
+stand-alone text files, human-readable headers or in the appropriate
+machine-readable metadata fields within text or binary files as long as those
+fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font Name(s)
+unless explicit written permission is granted by the corresponding Copyright
+Holder. This restriction only applies to the primary font name as presented to
+the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font Software
+shall not be used to promote, endorse or advertise any Modified Version, except
+to acknowledge the contribution(s) of the Copyright Holder(s) and the Author(s)
+or with their explicit written permission.
+
+5) The Font Software, modified or unmodified, in part or in whole, must be
+distributed entirely under this license, and must not be distributed under any
+other license. The requirement for fonts to remain under this license does not
+apply to any document created using the Font Software.
+
+TERMINATION
+
+This license becomes null and void if any of the above conditions are not met.
+
+DISCLAIMER
+
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT, TRADEMARK, OR
+OTHER RIGHT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL,
+OR CONSEQUENTIAL DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM OTHER
+DEALINGS IN THE FONT SOFTWARE.
