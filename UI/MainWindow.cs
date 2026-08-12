@@ -32,14 +32,32 @@ public sealed class MainWindow : Window
     private CancellationTokenSource? _scanCts;
     private bool _syncing;
     private FsNode? _ctxNode;
+    private bool _mutating;
+    /// <summary>Bumped whenever the whole model is replaced, so operations that
+    /// awaited across the swap can tell their tree is gone.</summary>
+    private int _treeGeneration;
 
     private bool IsScanning => _scanCts is not null;
+    /// <summary>True while any operation owns the tree — a scan, or a delete that
+    /// is waiting on the shell (where <see cref="IsScanning"/> is false).</summary>
+    private bool IsBusy => IsScanning || _mutating;
+
+    internal readonly record struct DeleteRequest(string Name, string FullPath, long Size);
+
+    // Injection seams — tests replace these to run without disk or modal dialogs.
+    internal Func<string, ScanProgress, CancellationToken, Task<FsNode>> ScanFunc = Scanner.ScanAsync;
+    internal Func<DeleteRequest, Task<bool>> ConfirmDelete;
+    internal Func<string, string, Task> ReportProblem;
 
     // Test seams — the headless test suite drives the window through these.
     internal TreemapControl Treemap => _treemap;
     internal HierarchicalTreeDataGridSource<FsNode>? TreeSource => _source;
     internal string CrumbText => _crumb.Text ?? "";
     internal bool UpEnabled => _upButton.IsEnabled;
+    internal FsNode? ContextNode => _ctxNode;
+    internal string StatusText => _status.Text ?? "";
+    internal string? LastScanPath => _lastPath;
+    internal void CancelCurrentScan() => _scanCts?.Cancel();
 
     public MainWindow()
     {
@@ -47,15 +65,14 @@ public sealed class MainWindow : Window
         Width = 1280;
         Height = 800;
 
+        ConfirmDelete = request => ConfirmDialog.ConfirmDeleteAsync(this, request);
+        ReportProblem = (title, message) => ConfirmDialog.ShowMessageAsync(this, title, message);
+
         // ---- Toolbar ----
         _driveCombo = new ComboBox { MinWidth = 90, PlaceholderText = "Drive" };
-        _driveCombo.ItemsSource = DriveInfo.GetDrives()
-            .Where(d => d.IsReady)
-            .Select(d => d.Name)
-            .ToArray();
         _driveCombo.SelectionChanged += (_, _) =>
         {
-            if (_driveCombo.SelectedItem is string drive && !IsScanning)
+            if (_driveCombo.SelectedItem is string drive && !IsBusy)
                 StartScan(drive);
         };
 
@@ -148,6 +165,43 @@ public sealed class MainWindow : Window
 
         if (Program.InitialPath is { } initial)
             Opened += (_, _) => StartScan(initial);
+
+        DrivesLoaded = LoadDrivesAsync();
+    }
+
+    /// <summary>Completes once the drive list has been populated (test seam).</summary>
+    internal Task DrivesLoaded { get; }
+
+    internal int DriveCount => (_driveCombo.ItemsSource as string[])?.Length ?? 0;
+
+    /// <summary>
+    /// Enumerate drives off the UI thread: DriveInfo.IsReady blocks (and can throw)
+    /// on disconnected network mappings, which would otherwise delay first paint.
+    /// </summary>
+    private async Task LoadDrivesAsync()
+    {
+        var names = await Task.Run(() =>
+        {
+            try
+            {
+                return DriveInfo.GetDrives()
+                    .Where(d =>
+                    {
+                        try { return d.IsReady; }
+                        catch (IOException) { return false; }
+                        catch (UnauthorizedAccessException) { return false; }
+                    })
+                    .Select(d => d.Name)
+                    .ToArray();
+            }
+            catch (Exception)
+            {
+                return Array.Empty<string>();
+            }
+        });
+
+        // Assigning ItemsSource does not set SelectedItem, so no scan auto-fires.
+        _driveCombo.ItemsSource = names;
     }
 
     // =====================================================================
@@ -156,7 +210,7 @@ public sealed class MainWindow : Window
 
     private async Task PickFolderAsync()
     {
-        if (IsScanning) return;
+        if (IsBusy) return;
         var picked = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Choose folder to scan",
@@ -166,11 +220,12 @@ public sealed class MainWindow : Window
             StartScan(path);
     }
 
-    private async void StartScan(string path)
-    {
-        if (IsScanning) return;
+    private async void StartScan(string path) => await StartScanAsync(path);
 
-        _lastPath = path;
+    internal async Task StartScanAsync(string path)
+    {
+        if (IsBusy) return;
+
         _scanCts = new CancellationTokenSource();
         _scanButton.Content = "Cancel";
         _scanButton.IsEnabled = true;
@@ -182,11 +237,13 @@ public sealed class MainWindow : Window
 
         try
         {
-            var root = await Scanner.ScanAsync(path, _progress, _scanCts.Token);
+            var root = await ScanFunc(path, _progress, _scanCts.Token);
             _scanWatch.Stop();
             bool cancelled = _scanCts.IsCancellationRequested;
 
             LoadTree(root);
+            // Recorded only on success, so "Rescan" never targets a path that failed.
+            _lastPath = path;
 
             _status.Text =
                 $"{(cancelled ? "Cancelled — partial results. " : "")}" +
@@ -214,6 +271,7 @@ public sealed class MainWindow : Window
     /// <summary>Adopt a scanned tree as the current model (also the injection point for tests).</summary>
     internal void LoadTree(FsNode root)
     {
+        _treeGeneration++;
         _scanRoot = root;
         SetTreeSource(root);
         _treemap.RootNode = root;
@@ -263,19 +321,14 @@ public sealed class MainWindow : Window
         try
         {
             // If the selection lies outside the current treemap root, pop the treemap back out.
-            if (!IsUnder(node, _treemap.RootNode))
+            if (!FsTreeOps.IsDescendantOrSelf(node, _treemap.RootNode))
+            {
                 _treemap.RootNode = _scanRoot;
+                UpdateCrumb();
+            }
             _treemap.SelectedNode = node;
         }
         finally { _syncing = false; }
-    }
-
-    private static bool IsUnder(FsNode node, FsNode? root)
-    {
-        for (FsNode? n = node; n is not null; n = n.Parent)
-            if (ReferenceEquals(n, root))
-                return true;
-        return false;
     }
 
     private IndexPath PathTo(FsNode node)
@@ -374,7 +427,7 @@ public sealed class MainWindow : Window
             if (!ReferenceEquals(menu.PlacementTarget, _treemap))
                 _ctxNode = _source?.RowSelection?.SelectedItem;
 
-            var state = GetContextMenuState(_ctxNode, IsScanning);
+            var state = GetContextMenuState(_ctxNode, IsBusy);
             if (!state.Show)
             {
                 e.Cancel = true;
@@ -389,9 +442,9 @@ public sealed class MainWindow : Window
 
     internal readonly record struct CtxMenuState(bool Show, bool CanDelete, bool CanRescan, bool CanTopFiles);
 
-    internal static CtxMenuState GetContextMenuState(FsNode? node, bool isScanning)
+    internal static CtxMenuState GetContextMenuState(FsNode? node, bool isBusy)
     {
-        if (node is null || isScanning)
+        if (node is null || isBusy)
             return new CtxMenuState(false, false, false, false);
         bool isDir = node.IsDir && !node.IsReparse;
         return new CtxMenuState(
@@ -401,38 +454,105 @@ public sealed class MainWindow : Window
             CanTopFiles: isDir);
     }
 
-    private async Task DeleteNodeAsync(FsNode node)
+    /// <summary>Disable the actions that would race a tree mutation.</summary>
+    private void SetMutating(bool on)
     {
-        if (node.Parent is null || IsScanning) return;
-
-        string path = node.GetFullPath();
-        bool deleted = await Task.Run(() => ShellOps.DeleteToRecycleBin(path));
-        if (!deleted) return;
-
-        var parent = node.Parent;
-        FsTreeOps.RemoveChild(node);
-
-        if (IsUnder(_treemap.RootNode ?? node, node) || ReferenceEquals(_treemap.RootNode, node))
-            _treemap.RootNode = parent;
-
-        RefreshAfterMutation(parent);
-        _status.Text = $"Deleted {node.Name} ({Format.Bytes(node.Size)}) to Recycle Bin.";
+        _mutating = on;
+        _driveCombo.IsEnabled = !on;
+        _scanButton.IsEnabled = !on && _lastPath is not null;
+        _topButton.IsEnabled = !on && _scanRoot is not null;
     }
 
-    private async Task RescanNodeAsync(FsNode node)
+    internal async Task DeleteNodeAsync(FsNode node)
     {
-        if (!node.IsDir || node.IsReparse || IsScanning) return;
+        if (node.Parent is null || IsBusy) return;
+        // Refuse nodes already detached from the live tree (e.g. a stale context node).
+        if (_scanRoot is null || !FsTreeOps.IsDescendantOrSelf(node, _scanRoot)) return;
 
+        // Capture before mutating: both are wrong once the node is detached.
+        string path = node.GetFullPath();
+        long size = node.Size;
+
+        if (!await ConfirmDelete(new DeleteRequest(node.Name, path, size)))
+            return;
+
+        int generation = _treeGeneration;
+        var parent = node.Parent;
+        SetMutating(true);
+        try
+        {
+            _status.Text = $"Deleting {node.Name}…";
+            bool deleted = await Task.Run(() => ShellOps.DeleteToRecycleBin(path));
+
+            if (generation != _treeGeneration)
+            {
+                _status.Text = $"Deleted {node.Name} on disk; the tree was replaced meanwhile.";
+                return;
+            }
+
+            if (!deleted)
+            {
+                const string reason = "the shell reported a failure.";
+                _status.Text = $"Delete failed: {reason}";
+                await ReportProblem("Delete failed", $"{path}\n\n{reason}");
+                return;
+            }
+
+            if (FsTreeOps.IsDescendantOrSelf(_treemap.RootNode, node))
+                _treemap.RootNode = parent;
+
+            FsTreeOps.RemoveChild(node);
+            RefreshAfterMutation(parent);
+            _status.Text = $"Deleted {node.Name} ({Format.Bytes(size)}) to Recycle Bin.";
+        }
+        finally
+        {
+            SetMutating(false);
+            _ctxNode = null;
+        }
+    }
+
+    internal async Task RescanNodeAsync(FsNode node)
+    {
+        if (!node.IsDir || node.IsReparse || IsBusy) return;
+        if (_scanRoot is null || !FsTreeOps.IsDescendantOrSelf(node, _scanRoot)) return;
+
+        int generation = _treeGeneration;
         _scanCts = new CancellationTokenSource();
         _scanButton.Content = "Cancel";
+        _scanButton.IsEnabled = true;
         _progress.Reset();
         _progressTimer.Start();
         try
         {
-            var fresh = await Scanner.ScanAsync(node.GetFullPath(), _progress, _scanCts.Token);
+            var fresh = await ScanFunc(node.GetFullPath(), _progress, _scanCts.Token);
+
+            // A cancelled scan returns a PARTIAL tree. Splicing it would overwrite
+            // accurate data with an undercount and shrink every ancestor.
+            if (_scanCts.IsCancellationRequested)
+            {
+                _status.Text = $"Rescan of {node.Name} cancelled — tree unchanged.";
+                return;
+            }
+
+            if (generation != _treeGeneration)
+            {
+                _status.Text = "Rescan discarded — a new scan replaced the tree.";
+                return;
+            }
+
+            // SpliceRescan is about to orphan this node's old children; if the
+            // treemap is drilled into one of them it would render a detached tree.
+            if (FsTreeOps.IsDescendantOrSelf(_treemap.RootNode, node))
+                _treemap.RootNode = node;
+
             FsTreeOps.SpliceRescan(node, fresh);
             RefreshAfterMutation(node);
             _status.Text = $"Rescanned {node.Name}: {Format.Bytes(node.Size)}.";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"Rescan failed: {ex.Message}";
         }
         finally
         {
@@ -440,6 +560,8 @@ public sealed class MainWindow : Window
             _scanCts.Dispose();
             _scanCts = null;
             _scanButton.Content = "Rescan";
+            _scanButton.IsEnabled = _lastPath is not null;
+            _ctxNode = null;
         }
     }
 

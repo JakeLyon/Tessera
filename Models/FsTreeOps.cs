@@ -28,7 +28,20 @@ public static class FsTreeOps
             return;
 
         parent.Children = parent.Children!.Where(c => !ReferenceEquals(c, node)).ToArray();
+        // Cut the upward link before propagating: a detached node that kept its
+        // Parent chain would subtract its size into the live tree a second time
+        // if it were ever passed to another mutation (e.g. deleting its old parent).
+        node.Parent = null;
         PropagateSizeDelta(parent, -node.Size);
+    }
+
+    /// <summary>True when <paramref name="node"/> is <paramref name="root"/> or sits beneath it.</summary>
+    public static bool IsDescendantOrSelf(FsNode? node, FsNode? root)
+    {
+        for (FsNode? n = node; n is not null; n = n.Parent)
+            if (ReferenceEquals(n, root))
+                return true;
+        return false;
     }
 
     /// <summary>

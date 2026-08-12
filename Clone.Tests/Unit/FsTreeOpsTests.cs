@@ -72,6 +72,57 @@ public class FsTreeOpsTests
     }
 
     [Fact]
+    public void RemoveChild_NullsParentOnRemovedNode()
+    {
+        var root = TestTree.Seal(TestTree.Dir("root", TestTree.File("a", 100), TestTree.File("b", 50)));
+        var a = TestTree.Find(root, "a");
+
+        FsTreeOps.RemoveChild(a);
+
+        Assert.Null(a.Parent);
+        Assert.Equal(100, a.Size); // size preserved — callers still report it
+    }
+
+    [Fact]
+    public void RemoveChild_ThenRemoveFormerParent_SubtractsEachSizeExactlyOnce()
+    {
+        // Regression: a detached node used to keep its Parent chain, so removing its
+        // former parent propagated the child's size into the live tree a second time.
+        var root = TestTree.Seal(TestTree.Dir("root",
+            TestTree.Dir("P", TestTree.File("A", 100), TestTree.File("B", 50)),
+            TestTree.File("keep", 10)));
+        var p = TestTree.Find(root, "P");
+        var a = TestTree.Find(root, "A");
+
+        FsTreeOps.RemoveChild(a);
+        Assert.Equal(50, p.Size);
+        Assert.Equal(60, root.Size);
+
+        FsTreeOps.RemoveChild(p);
+        Assert.Equal(10, root.Size); // "keep" only — not 10 - 100
+    }
+
+    [Theory]
+    [InlineData("root", "root", true)]
+    [InlineData("sub", "root", true)]
+    [InlineData("leaf", "root", true)]
+    [InlineData("root", "sub", false)]
+    public void IsDescendantOrSelf_WalksAncestorChain(string nodeName, string rootName, bool expected)
+    {
+        var root = TestTree.Seal(TestTree.Dir("root", TestTree.Dir("sub", TestTree.File("leaf", 1))));
+        Assert.Equal(expected,
+            FsTreeOps.IsDescendantOrSelf(TestTree.Find(root, nodeName), TestTree.Find(root, rootName)));
+    }
+
+    [Fact]
+    public void IsDescendantOrSelf_NullsAreFalse()
+    {
+        var root = TestTree.Seal(TestTree.Dir("root", TestTree.File("f", 1)));
+        Assert.False(FsTreeOps.IsDescendantOrSelf(null, root));
+        Assert.False(FsTreeOps.IsDescendantOrSelf(root, null));
+    }
+
+    [Fact]
     public void RemoveChild_NullParent_NoOp()
     {
         var lone = TestTree.Seal(TestTree.Dir("root", TestTree.File("f", 10)));
