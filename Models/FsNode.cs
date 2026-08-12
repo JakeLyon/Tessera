@@ -12,6 +12,8 @@ public sealed class FsNode
     public const byte FlagDir = 1;
     public const byte FlagReparse = 2;
     public const byte FlagAccessDenied = 4;
+    /// <summary>The directory could not be read for a reason other than permissions.</summary>
+    public const byte FlagScanError = 8;
 
     public string Name;
     public long Size;
@@ -29,6 +31,7 @@ public sealed class FsNode
     public bool IsDir => (Flags & FlagDir) != 0;
     public bool IsReparse => (Flags & FlagReparse) != 0;
     public bool IsAccessDenied => (Flags & FlagAccessDenied) != 0;
+    public bool IsScanError => (Flags & FlagScanError) != 0;
 
     public double PercentOfParent => Parent is { Size: > 0 } p ? (double)Size / p.Size : 1.0;
 

@@ -28,7 +28,7 @@ dotnet run --project Clone.csproj -- "D:\some\folder"  # open and scan immediate
 dotnet run --project Clone.csproj -- --scan "C:\"      # headless: print totals and exit
 ```
 
-`--scan` exits `0` on success, `2` on a usage error (missing or blank path) and `3` when the scan itself fails.
+`--scan` exits `0` on success, `2` on a usage error (missing or blank path) and `3` when the scan itself fails. The UI exits `1` if it cannot start.
 
 ## Publish
 
@@ -44,7 +44,7 @@ Add `--self-contained true` instead for machines without the runtime (~90 MB). `
 
 ## Tests
 
-208 tests in three layers, all runnable without elevation:
+223 tests in three layers, all runnable without elevation:
 
 ```powershell
 dotnet test
@@ -53,8 +53,8 @@ dotnet test
 | Layer | What it covers |
 |---|---|
 | Unit (`Clone.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
-| Integration (`Clone.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, the `--scan` CLI in-process and as a real child process (totals and exit codes) |
-| Headless UI (`Clone.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window |
+| Integration (`Clone.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
+| Headless UI (`Clone.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, and that a failing handler reports instead of terminating the process |
 
 The suite never deletes anything it didn't create; fixtures build under `%TEMP%\CloneTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
 
@@ -70,6 +70,8 @@ UI/Squarify.cs           pure squarified-treemap layout algorithm
 UI/TreemapControl.cs     custom control: cached layout + cached scene bitmap, hit-testing
 UI/MainWindow.cs         toolbar, TreeDataGrid, treemap, selection-sync mediator
 UI/TopFilesWindow.cs     top-100 largest files list
+UI/ConfirmDialog.cs      hand-rolled modal confirm/message window
+UI/CrashHandler.cs       turns an unexpected exception into something readable
 Util/Format.cs           byte/percent formatting
 Util/ShellOps.cs         SHFileOperationW recycle-bin delete, Explorer reveal
 ```
@@ -80,3 +82,5 @@ Design notes:
 - Full paths are never stored — they're rebuilt on demand by walking parent links; the root node holds the absolute path.
 - Every `Children` array is kept sorted by size descending; the treemap layout and the tree view both rely on this invariant, and `FsTreeOps` preserves it through every mutation.
 - `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1 — the last MIT-licensed version**. 11.2.0+ requires a commercial AvaloniaUI license; don't bump it casually.
+- **Nothing fails silently.** The UI runs on `async void` event handlers, where a throw is unhandled by definition, so every menu and toolbar action goes through `MainWindow.Guarded` and lands in the status bar. `Dispatcher.UIThread.UnhandledException` catches whatever slips past and keeps the window alive. Nothing is written to disk — the app reports and carries on.
+- The scanner's workers share a pending-directory counter, and a worker that fails without decrementing it strands the rest in a spin loop. The decrement lives in a `finally` for that reason; `Scanner.OnDirectoryEnter` exists so the case stays regression-tested.

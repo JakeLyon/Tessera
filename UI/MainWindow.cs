@@ -59,6 +59,25 @@ public sealed class MainWindow : Window
     internal string? LastScanPath => _lastPath;
     internal void CancelCurrentScan() => _scanCts?.Cancel();
 
+    /// <summary>
+    /// Run an async event-handler body so a failure reaches the user instead of killing
+    /// the process: an exception escaping an `async void` handler is unhandled by
+    /// definition. Every menu and toolbar action goes through here.
+    /// </summary>
+    internal async void Guarded(string what, Func<Task> body)
+    {
+        try
+        {
+            await body();
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"{what} failed: {ex.Message}";
+            try { await ReportProblem($"{what} failed", CrashHandler.Describe(ex)); }
+            catch (Exception) { /* the status bar already carries the message */ }
+        }
+    }
+
     public MainWindow()
     {
         Title = "Clone — Disk Space Analyzer";
@@ -77,7 +96,7 @@ public sealed class MainWindow : Window
         };
 
         var pickButton = new Button { Content = "Folder…" };
-        pickButton.Click += async (_, _) => await PickFolderAsync();
+        pickButton.Click += (_, _) => Guarded("Choosing a folder", PickFolderAsync);
 
         _scanButton = new Button { Content = "Rescan", IsEnabled = false };
         _scanButton.Click += (_, _) =>
@@ -92,11 +111,12 @@ public sealed class MainWindow : Window
         _upButton.Click += (_, _) => NavigateUp();
 
         _topButton = new Button { Content = "Top 100", IsEnabled = false };
-        _topButton.Click += (_, _) =>
+        _topButton.Click += (_, _) => Guarded("Opening the top files list", () =>
         {
             if (_scanRoot is not null)
                 new TopFilesWindow(_scanRoot).Show(this);
-        };
+            return Task.CompletedTask;
+        });
 
         _crumb = new TextBlock
         {
@@ -220,7 +240,7 @@ public sealed class MainWindow : Window
             StartScan(path);
     }
 
-    private async void StartScan(string path) => await StartScanAsync(path);
+    private void StartScan(string path) => Guarded("Scan", () => StartScanAsync(path));
 
     internal async Task StartScanAsync(string path)
     {
@@ -406,20 +426,32 @@ public sealed class MainWindow : Window
         };
 
         var copy = new MenuItem { Header = "Copy path" };
-        copy.Click += async (_, _) =>
+        // Another application holding the clipboard open is a routine Windows failure,
+        // and SetTextAsync throwing here used to be fatal.
+        copy.Click += (_, _) => Guarded("Copying the path", async () =>
         {
             if (_ctxNode is { } n && Clipboard is { } cb)
                 await cb.SetTextAsync(n.GetFullPath());
-        };
+        });
 
         var delete = new MenuItem { Header = "Delete (Recycle Bin)" };
-        delete.Click += async (_, _) => { if (_ctxNode is { } n) await DeleteNodeAsync(n); };
+        delete.Click += (_, _) => Guarded("Delete", async () =>
+        {
+            if (_ctxNode is { } n) await DeleteNodeAsync(n);
+        });
 
         var rescan = new MenuItem { Header = "Rescan folder" };
-        rescan.Click += async (_, _) => { if (_ctxNode is { } n) await RescanNodeAsync(n); };
+        rescan.Click += (_, _) => Guarded("Rescan", async () =>
+        {
+            if (_ctxNode is { } n) await RescanNodeAsync(n);
+        });
 
         var top = new MenuItem { Header = "Top 100 files here" };
-        top.Click += (_, _) => { if (_ctxNode is { IsDir: true } n) new TopFilesWindow(n).Show(this); };
+        top.Click += (_, _) => Guarded("Opening the top files list", () =>
+        {
+            if (_ctxNode is { IsDir: true } n) new TopFilesWindow(n).Show(this);
+            return Task.CompletedTask;
+        });
 
         var menu = new ContextMenu
         {

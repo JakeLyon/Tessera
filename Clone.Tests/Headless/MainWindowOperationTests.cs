@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Clone.Models;
 using Clone.Scanning;
 using Clone.UI;
@@ -279,5 +280,95 @@ public class MainWindowOperationTests
 
         Assert.Equal(@"C:\good", window.LastScanPath);
         Assert.Contains("failed", window.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // =====================================================================
+    // Guarded: every menu and toolbar action runs through it, because an
+    // exception escaping an `async void` handler terminates the process.
+    // =====================================================================
+
+    /// <summary>Guarded is async void, so drain the dispatcher instead of awaiting it.</summary>
+    private static void Pump()
+    {
+        for (int i = 0; i < 10; i++)
+            Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Guarded_BodyThrowsSynchronously_ReportedInsteadOfEscaping()
+    {
+        var (window, _) = Host();
+        var reported = new List<(string Title, string Body)>();
+        window.ReportProblem = (title, body) => { reported.Add((title, body)); return Task.CompletedTask; };
+
+        window.Guarded("Copying the path", () => throw new InvalidOperationException("clipboard is busy"));
+        Pump();
+
+        Assert.Contains("Copying the path failed", window.StatusText);
+        Assert.Contains("clipboard is busy", window.StatusText);
+        var (reportedTitle, reportedBody) = Assert.Single(reported);
+        Assert.Equal("Copying the path failed", reportedTitle);
+        Assert.Contains("InvalidOperationException", reportedBody);
+    }
+
+    [AvaloniaFact]
+    public void Guarded_BodyFaultsAsynchronously_ReportedInsteadOfEscaping()
+    {
+        var (window, _) = Host();
+
+        window.Guarded("Scan", async () =>
+        {
+            await Task.Yield();
+            throw new IOException("the drive was removed");
+        });
+        Pump();
+
+        Assert.Contains("Scan failed", window.StatusText);
+        Assert.Contains("the drive was removed", window.StatusText);
+    }
+
+    [AvaloniaFact]
+    public void Guarded_ReportProblemAlsoThrows_StatusStillCarriesTheMessage()
+    {
+        var (window, _) = Host();
+        window.ReportProblem = (_, _) => throw new InvalidOperationException("no dialog available");
+
+        // The reporting channel failing must not itself become the unhandled exception.
+        window.Guarded("Delete", () => throw new IOException("file is locked"));
+        Pump();
+
+        Assert.Contains("Delete failed", window.StatusText);
+        Assert.Contains("file is locked", window.StatusText);
+    }
+
+    [AvaloniaFact]
+    public void Guarded_ConfirmationDialogThrows_DeleteReportsAndTreeUntouched()
+    {
+        // The real shape of the bug: ConfirmDelete is awaited before DeleteNodeAsync's
+        // own try block, so only the handler's guard can catch it.
+        var (window, root) = Host();
+        window.ConfirmDelete = _ => throw new InvalidOperationException("dialog failed to open");
+        long sizeBefore = root.Size;
+        var video = Array.Find(root.Children!, c => c.Name == "video.mp4")!;
+
+        window.Guarded("Delete", () => window.DeleteNodeAsync(video));
+        Pump();
+
+        Assert.Contains("Delete failed", window.StatusText);
+        Assert.Equal(sizeBefore, root.Size);
+        Assert.Contains(root.Children!, c => ReferenceEquals(c, video));
+    }
+
+    [AvaloniaFact]
+    public void Guarded_BodySucceeds_StatusUntouched()
+    {
+        var (window, _) = Host();
+        window.ReportProblem = (_, _) => throw new InvalidOperationException("must not be called");
+        string before = window.StatusText;
+
+        window.Guarded("Something", () => Task.CompletedTask);
+        Pump();
+
+        Assert.Equal(before, window.StatusText);
     }
 }

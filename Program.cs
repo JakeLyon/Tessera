@@ -1,12 +1,13 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Clone.Scanning;
+using Clone.UI;
 
 namespace Clone;
 
 internal static class Program
 {
-    /// <summary>Exit codes: 0 success, 2 usage error, 3 scan failure.</summary>
+    /// <summary>Exit codes: 0 success, 1 startup failure, 2 usage error, 3 scan failure.</summary>
     [STAThread]
     public static int Main(string[] args)
     {
@@ -24,7 +25,29 @@ internal static class Program
         if (args.Length >= 1 && Directory.Exists(args[0]))
             InitialPath = Path.GetFullPath(args[0]);
 
-        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        // A task nobody awaited must not escalate to a process kill; the UI
+        // deliberately fires several off (drive enumeration, dialog results).
+        TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
+
+        // Last resort. The process is going down either way — this exists so it
+        // does not go down in silence, which is what a startup crash looks like today.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                CrashHandler.Report(owner: null, "Clone has to close", ex);
+        };
+
+        try
+        {
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            // Failing before the window exists gives no owner to parent a dialog to,
+            // and no status bar to fall back on.
+            CrashHandler.Report(owner: null, "Clone could not start", ex);
+            return 1;
+        }
     }
 
     internal static int RunScanCli(string[] args, TextWriter stdout, TextWriter stderr)

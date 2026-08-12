@@ -34,6 +34,12 @@ public static class Scanner
 
     private static readonly Comparison<FsNode> s_sizeDesc = (a, b) => b.Size.CompareTo(a.Size);
 
+    /// <summary>
+    /// Test seam: called with each directory path as a worker picks it up, so a test can
+    /// inject the failures real filesystems produce too rarely to reproduce on demand.
+    /// </summary>
+    internal static Action<string>? OnDirectoryEnter;
+
     public static Task<FsNode> ScanAsync(string rootPath, ScanProgress progress, CancellationToken ct)
         => Task.Run(() => Scan(rootPath, progress, ct), CancellationToken.None);
 
@@ -53,7 +59,18 @@ public static class Scanner
         var workers = new Task[workerCount];
         for (int i = 0; i < workerCount; i++)
             workers[i] = Task.Run(() => WorkerLoop(state));
-        Task.WaitAll(workers);
+
+        try
+        {
+            Task.WaitAll(workers);
+        }
+        catch (AggregateException ex) when (ex.Flatten().InnerExceptions.Count > 0)
+        {
+            // WaitAll wraps everything, so the caller would otherwise report the
+            // useless "One or more errors occurred." Surface what actually failed.
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                .Capture(ex.Flatten().InnerExceptions[0]).Throw();
+        }
 
         Aggregate(root);
         return root;
@@ -76,8 +93,20 @@ public static class Scanner
             }
 
             spin.Reset();
-            ProcessDirectory(item.Node, item.Path, state);
-            if (Interlocked.Decrement(ref state.Pending) == 0)
+            bool drained;
+            try
+            {
+                ProcessDirectory(item.Node, item.Path, state);
+            }
+            finally
+            {
+                // In a finally: a worker that faulted without decrementing would strand
+                // Pending above zero forever, leaving every other worker spinning on a
+                // queue that never refills and Task.WaitAll never returning.
+                drained = Interlocked.Decrement(ref state.Pending) == 0;
+            }
+
+            if (drained)
                 return;
         }
     }
@@ -95,6 +124,10 @@ public static class Scanner
 
         try
         {
+            // Inside the try, standing in for a failure of the enumeration itself —
+            // outside it, an injected fault would bypass the handling under test.
+            OnDirectoryEnter?.Invoke(path);
+
             var entries = new FileSystemEnumerable<Entry>(
                 path,
                 (ref FileSystemEntry e) => new Entry(
@@ -133,6 +166,16 @@ public static class Scanner
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
             dir.Flags |= FsNode.FlagAccessDenied;
+            Interlocked.Increment(ref progress.Errors);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException
+                                     or System.Security.SecurityException)
+        {
+            // A directory the OS will hand us but the path APIs reject — a name with
+            // characters Path.Join cannot round-trip, say. Not "denied", but the same
+            // outcome for the user: this subtree is unreadable. Anything outside this
+            // set (OutOfMemoryException) still propagates, which is now safe.
+            dir.Flags |= FsNode.FlagScanError;
             Interlocked.Increment(ref progress.Errors);
         }
 
