@@ -67,13 +67,34 @@ jobs:
       - name: Smoke-test the CLI
         shell: pwsh
         run: |
-          $exe = "publish/Tessera.exe"
-          $out = & $exe --scan "$env:WINDIR\Fonts"
-          if ($LASTEXITCODE -ne 0) { throw "scan exited $LASTEXITCODE" }
-          if ($out -notmatch 'files=\d+') { throw "no totals in output: $out" }
-          & $exe --scan | Out-Null
-          if ($LASTEXITCODE -ne 2) { throw "missing-path case exited $LASTEXITCODE, expected 2" }
+          # Tessera is a WinExe, so PowerShell does not wait for it and never sets
+          # $LASTEXITCODE when it is called directly. Start-Process -Wait does both,
+          # and is the same invocation the README documents for scripting.
+          function Invoke-Tessera([string[]]$TesseraArgs) {
+              $out = New-TemporaryFile
+              $err = New-TemporaryFile
+              $proc = Start-Process ./publish/Tessera.exe -ArgumentList $TesseraArgs `
+                  -NoNewWindow -Wait -PassThru `
+                  -RedirectStandardOutput $out -RedirectStandardError $err
+              $result = [pscustomobject]@{
+                  ExitCode = $proc.ExitCode
+                  StdOut   = (Get-Content $out -Raw)
+                  StdErr   = (Get-Content $err -Raw)
+              }
+              Remove-Item $out, $err
+              return $result
+          }
+
+          $scan = Invoke-Tessera @('--scan', "$env:WINDIR\Fonts")
+          if ($scan.ExitCode -ne 0) { throw "scan exited $($scan.ExitCode): $($scan.StdErr)" }
+          if ($scan.StdOut -notmatch 'files=\d+') { throw "no totals in output: $($scan.StdOut)" }
+
+          $usage = Invoke-Tessera @('--scan')
+          if ($usage.ExitCode -ne 2) { throw "missing-path case exited $($usage.ExitCode), expected 2" }
+          if ($usage.StdErr -notmatch 'usage:') { throw "no usage message: $($usage.StdErr)" }
+
           Write-Host "CLI smoke test passed"
+          Write-Host $scan.StdOut
 
       - name: Upload executable
         uses: actions/upload-artifact@v4

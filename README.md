@@ -41,6 +41,31 @@ dotnet run --project Tessera.csproj -- --scan "C:\"      # headless: print total
 
 `--scan` exits `0` on success, `2` on a usage error (missing or blank path) and `3` when the scan itself fails. The UI exits `1` if it cannot start.
 
+### Scripting `--scan` — read this before automating it
+
+Tessera is a `WinExe` (GUI subsystem), so it has no console of its own. It borrows the parent's console via `AttachConsole`, which is enough to read output interactively — but **shells do not wait for a GUI-subsystem process**. Calling it directly returns immediately, before it has written anything:
+
+```powershell
+$out = & .\Tessera.exe --scan "C:\"    # ✗ returns instantly; $out empty, $LASTEXITCODE unset
+```
+
+Two invocations are verified to work from PowerShell. Piping makes PowerShell read to EOF, which means it waits:
+
+```powershell
+.\Tessera.exe --scan "C:\" | Out-Host   # ✓ prints totals, sets $LASTEXITCODE
+```
+
+And to capture output and the exit code, wait explicitly:
+
+```powershell
+$out = New-TemporaryFile
+$p = Start-Process .\Tessera.exe -ArgumentList '--scan','C:\' `
+        -NoNewWindow -Wait -PassThru -RedirectStandardOutput $out
+"exit=$($p.ExitCode)"; Get-Content $out
+```
+
+**Known limitation:** plain file redirection (`> totals.txt`) captures nothing, in either PowerShell or `cmd.exe`, and `cmd.exe` has no working equivalent of the two patterns above — neither `start /wait` with redirection nor piping captures the output. The proper fix is to ship a small console-subsystem companion executable for CLI use, which is why tools in this position usually ship two binaries. Until then, treat `--scan` as PowerShell-only for automation.
+
 ## Publish
 
 Framework-dependent single file (~27 MB, needs the .NET 10 runtime on the target machine):
