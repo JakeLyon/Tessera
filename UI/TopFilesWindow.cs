@@ -31,8 +31,10 @@ public sealed class TopFilesWindow : Window
         var grid = new TreeDataGrid { Source = source, CanUserResizeColumns = true };
         grid.DoubleTapped += (_, _) =>
         {
+            // Convenience gesture with nowhere to report to — a failed reveal is
+            // ignored, but it must never throw out of the handler.
             if (source.RowSelection?.SelectedItem is { } node)
-                ShellOps.RevealInFileManager(node.GetFullPath(), isDirectory: false);
+                _ = ShellOps.RevealInFileManager(node.GetFullPath(), isDirectory: false);
         };
 
         Content = grid;

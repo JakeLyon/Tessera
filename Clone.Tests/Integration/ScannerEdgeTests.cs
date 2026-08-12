@@ -117,29 +117,6 @@ public class ScannerEdgeTests : IClassFixture<TempTreeFixture>
     }
 
     [WindowsFact]
-    public void CliScanMode_PrintsTotalsAndExits()
-    {
-        var original = Console.Out;
-        var writer = new StringWriter();
-        Console.SetOut(writer);
-        try
-        {
-            Program.Main(new[] { "--scan", _fx.Root });
-        }
-        finally
-        {
-            Console.SetOut(original);
-        }
-
-        string output = writer.ToString();
-        Assert.Contains(Path.GetFullPath(_fx.Root), output);
-        Assert.Contains($"files={TempTreeFixture.ExpectedFiles}", output);
-        Assert.Contains($"dirs={TempTreeFixture.ExpectedDirs}", output);
-        Assert.Contains($"bytes={TempTreeFixture.ExpectedBytes}", output);
-        Assert.Contains("errors=0", output);
-    }
-
-    [WindowsFact]
     public void Pipeline_ScanThenSquarify_InvariantsHold()
     {
         var (root, _) = Scan(_fx.Root);

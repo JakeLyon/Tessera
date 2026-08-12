@@ -398,7 +398,12 @@ public sealed class MainWindow : Window
     private ContextMenu BuildContextMenu()
     {
         var open = new MenuItem { Header = "Open in Explorer" };
-        open.Click += (_, _) => { if (_ctxNode is { } n) ShellOps.RevealInFileManager(n.GetFullPath(), n.IsDir); };
+        open.Click += (_, _) =>
+        {
+            if (_ctxNode is not { } n) return;
+            if (ShellOps.RevealInFileManager(n.GetFullPath(), n.IsDir) is { Ok: false } result)
+                _status.Text = $"Could not open the file manager: {result.Error}";
+        };
 
         var copy = new MenuItem { Header = "Copy path" };
         copy.Click += async (_, _) =>
@@ -454,6 +459,26 @@ public sealed class MainWindow : Window
             CanTopFiles: isDir);
     }
 
+    /// <summary>
+    /// SHFileOperationW shows shell UI and must run on an STA thread — a thread-pool
+    /// thread is MTA, which is what made the delete dialog non-modal.
+    /// </summary>
+    private static Task<ShellResult> DeleteOnStaThreadAsync(string path)
+    {
+        var completion = new TaskCompletionSource<ShellResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try { completion.SetResult(ShellOps.DeleteToRecycleBin(path)); }
+            catch (Exception ex) { completion.SetResult(ShellResult.Fail(ex.Message)); }
+        })
+        { IsBackground = true, Name = "Clone.Delete" };
+
+        if (OperatingSystem.IsWindows())
+            thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
+    }
+
     /// <summary>Disable the actions that would race a tree mutation.</summary>
     private void SetMutating(bool on)
     {
@@ -482,7 +507,7 @@ public sealed class MainWindow : Window
         try
         {
             _status.Text = $"Deleting {node.Name}…";
-            bool deleted = await Task.Run(() => ShellOps.DeleteToRecycleBin(path));
+            var result = await DeleteOnStaThreadAsync(path);
 
             if (generation != _treeGeneration)
             {
@@ -490,11 +515,10 @@ public sealed class MainWindow : Window
                 return;
             }
 
-            if (!deleted)
+            if (!result.Ok)
             {
-                const string reason = "the shell reported a failure.";
-                _status.Text = $"Delete failed: {reason}";
-                await ReportProblem("Delete failed", $"{path}\n\n{reason}");
+                _status.Text = $"Delete failed: {result.Error}";
+                await ReportProblem("Delete failed", $"{path}\n\n{result.Error}");
                 return;
             }
 
