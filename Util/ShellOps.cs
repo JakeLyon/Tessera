@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Clone.Util;
+namespace Tessera.Util;
 
 /// <summary>Outcome of a shell operation. Failures are reported, never thrown.</summary>
 public readonly record struct ShellResult(bool Ok, string? Error)

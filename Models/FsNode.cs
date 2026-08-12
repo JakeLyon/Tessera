@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Clone.Models;
+namespace Tessera.Models;
 
 /// <summary>
 /// One scanned file or directory. Kept deliberately small — a full drive scan can

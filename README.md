@@ -1,8 +1,8 @@
-# Clone — Disk Space Analyzer
+# Tessera — Disk Space Analyzer
 
 A lightweight SpaceMonger/TreeSize-style disk space analyzer for Windows, built with .NET 10 and Avalonia. Scans a drive or folder and shows where the space went: a size-sorted folder tree on the left, a squarified treemap on the right, kept in sync both ways.
 
-![Clone scanning C:\Program Files\dotnet](docs/screenshot.png)
+![Tessera scanning C:\Program Files\dotnet](docs/screenshot.png)
 
 ## Features
 
@@ -13,7 +13,7 @@ A lightweight SpaceMonger/TreeSize-style disk space analyzer for Windows, built 
 - **Detail limits** — **View ▸ Detail** picks Low / Medium / High, trading rectangles for responsiveness. A drive scan can otherwise lay out far more rectangles than are readable, and every one is scanned on each mouse move. When a limit hides part of the view the status bar says so, so the treemap never quietly under-reports.
 - **Top 100 largest files** — flat list for quick wins, double-click to reveal in Explorer.
 - **Safe by construction** — junctions/symlinks are shown but never followed (no cycles, no double-counting); access-denied folders are flagged and counted, never fatal.
-- **Headless CLI mode** — `Clone.exe --scan <path>` prints totals without opening a window.
+- **Headless CLI mode** — `Tessera.exe --scan <path>` prints totals without opening a window.
 
 ## Requirements
 
@@ -24,9 +24,9 @@ A lightweight SpaceMonger/TreeSize-style disk space analyzer for Windows, built 
 
 ```powershell
 dotnet build -c Release
-dotnet run --project Clone.csproj                      # open the UI
-dotnet run --project Clone.csproj -- "D:\some\folder"  # open and scan immediately
-dotnet run --project Clone.csproj -- --scan "C:\"      # headless: print totals and exit
+dotnet run --project Tessera.csproj                      # open the UI
+dotnet run --project Tessera.csproj -- "D:\some\folder"  # open and scan immediately
+dotnet run --project Tessera.csproj -- --scan "C:\"      # headless: print totals and exit
 ```
 
 `--scan` exits `0` on success, `2` on a usage error (missing or blank path) and `3` when the scan itself fails. The UI exits `1` if it cannot start.
@@ -36,9 +36,9 @@ dotnet run --project Clone.csproj -- --scan "C:\"      # headless: print totals 
 Framework-dependent single file (~27 MB, needs the .NET 10 runtime on the target machine):
 
 ```powershell
-# Name the project explicitly — publishing the solution also picks up Clone.Tests,
+# Name the project explicitly — publishing the solution also picks up Tessera.Tests,
 # which cannot be single-file published (NETSDK1098).
-dotnet publish Clone.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:DebugType=none
+dotnet publish Tessera.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:DebugType=none
 ```
 
 Add `--self-contained true` instead for machines without the runtime (~90 MB). `PublishTrimmed` is not supported by Avalonia — don't enable it.
@@ -53,11 +53,11 @@ dotnet test
 
 | Layer | What it covers |
 |---|---|
-| Unit (`Clone.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
-| Integration (`Clone.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
-| Headless UI (`Clone.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, and that a failing handler reports instead of terminating the process |
+| Unit (`Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
+| Integration (`Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
+| Headless UI (`Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, and that a failing handler reports instead of terminating the process |
 
-The suite never deletes anything it didn't create; fixtures build under `%TEMP%\CloneTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
+The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
 
 ## Architecture
 

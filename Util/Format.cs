@@ -1,4 +1,4 @@
-namespace Clone.Util;
+namespace Tessera.Util;
 
 public static class Format
 {

@@ -1,4 +1,4 @@
-namespace Clone.Models;
+namespace Tessera.Models;
 
 /// <summary>
 /// UI-free mutations and queries over a scanned FsNode tree. All methods preserve

@@ -1,4 +1,4 @@
-namespace Clone.Scanning;
+namespace Tessera.Scanning;
 
 /// <summary>
 /// Lock-free scan counters. Workers bump these with Interlocked; the UI polls them

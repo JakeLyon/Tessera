@@ -2,9 +2,9 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Clone.UI;
+using Tessera.UI;
 
-namespace Clone;
+namespace Tessera;
 
 public class App : Application
 {

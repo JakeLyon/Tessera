@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.IO.Enumeration;
-using Clone.Models;
+using Tessera.Models;
 
-namespace Clone.Scanning;
+namespace Tessera.Scanning;
 
 /// <summary>
 /// Parallel directory scanner. A shared queue of pending directories is consumed by

@@ -1,9 +1,9 @@
 using System.Runtime.InteropServices;
 using Avalonia;
-using Clone.Scanning;
-using Clone.UI;
+using Tessera.Scanning;
+using Tessera.UI;
 
-namespace Clone;
+namespace Tessera;
 
 internal static class Program
 {
@@ -11,7 +11,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        // Headless mode: "Clone --scan <path>" prints totals and exits (no window).
+        // Headless mode: "Tessera --scan <path>" prints totals and exits (no window).
         if (args.Length >= 1 && args[0] == "--scan")
         {
             AttachToParentConsole();
@@ -21,7 +21,7 @@ internal static class Program
             return code;
         }
 
-        // "Clone <path>" opens the window and immediately scans that path.
+        // "Tessera <path>" opens the window and immediately scans that path.
         if (args.Length >= 1 && Directory.Exists(args[0]))
             InitialPath = Path.GetFullPath(args[0]);
 
@@ -34,7 +34,7 @@ internal static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             if (e.ExceptionObject is Exception ex)
-                CrashHandler.Report(owner: null, "Clone has to close", ex);
+                CrashHandler.Report(owner: null, "Tessera has to close", ex);
         };
 
         try
@@ -45,7 +45,7 @@ internal static class Program
         {
             // Failing before the window exists gives no owner to parent a dialog to,
             // and no status bar to fall back on.
-            CrashHandler.Report(owner: null, "Clone could not start", ex);
+            CrashHandler.Report(owner: null, "Tessera could not start", ex);
             return 1;
         }
     }
@@ -54,7 +54,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            stderr.WriteLine("usage: Clone --scan <path>");
+            stderr.WriteLine("usage: Tessera --scan <path>");
             return 2;
         }
 
@@ -83,7 +83,7 @@ internal static class Program
 
     /// <summary>
     /// A WinExe has no console of its own, so Console.WriteLine goes nowhere when the
-    /// user runs "Clone.exe --scan" from a terminal. Borrow the parent's console.
+    /// user runs "Tessera.exe --scan" from a terminal. Borrow the parent's console.
     /// No-ops when output is already redirected or there is no parent console
     /// (double-clicked), both of which already work.
     /// </summary>

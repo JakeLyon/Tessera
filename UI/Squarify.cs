@@ -1,7 +1,7 @@
 using Avalonia;
-using Clone.Models;
+using Tessera.Models;
 
-namespace Clone.UI;
+namespace Tessera.UI;
 
 /// <summary>One laid-out treemap rectangle.</summary>
 public readonly record struct TmRect(FsNode Node, Rect Bounds, int Depth, bool IsLeaf);

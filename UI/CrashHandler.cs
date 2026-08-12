@@ -1,7 +1,7 @@
 using System.Text;
 using Avalonia.Controls;
 
-namespace Clone.UI;
+namespace Tessera.UI;
 
 /// <summary>
 /// The one place an unexpected exception becomes something the user can read.

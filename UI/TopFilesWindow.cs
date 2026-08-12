@@ -1,9 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
-using Clone.Models;
-using Clone.Util;
+using Tessera.Models;
+using Tessera.Util;
 
-namespace Clone.UI;
+namespace Tessera.UI;
 
 /// <summary>Flat list of the 100 largest files under a given directory node.</summary>
 public sealed class TopFilesWindow : Window

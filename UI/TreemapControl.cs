@@ -4,10 +4,10 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Rendering;
-using Clone.Models;
-using Clone.Util;
+using Tessera.Models;
+using Tessera.Util;
 
-namespace Clone.UI;
+namespace Tessera.UI;
 
 /// <summary>
 /// SpaceMonger-style squarified treemap. The layout (a flat list of rectangles,

@@ -6,11 +6,11 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Clone.Models;
-using Clone.Scanning;
-using Clone.Util;
+using Tessera.Models;
+using Tessera.Scanning;
+using Tessera.Util;
 
-namespace Clone.UI;
+namespace Tessera.UI;
 
 public sealed class MainWindow : Window
 {
@@ -81,7 +81,7 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "Clone — Disk Space Analyzer";
+        Title = "Tessera — Disk Space Analyzer";
         Width = 1280;
         Height = 800;
 
@@ -575,7 +575,7 @@ public sealed class MainWindow : Window
             try { completion.SetResult(ShellOps.DeleteToRecycleBin(path)); }
             catch (Exception ex) { completion.SetResult(ShellResult.Fail(ex.Message)); }
         })
-        { IsBackground = true, Name = "Clone.Delete" };
+        { IsBackground = true, Name = "Tessera.Delete" };
 
         if (OperatingSystem.IsWindows())
             thread.SetApartmentState(ApartmentState.STA);
