@@ -1,5 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Tessera.Models;
 using Tessera.UI;
 using Xunit;
@@ -225,16 +227,16 @@ public class MainWindowTests
     // =====================================================================
 
     [AvaloniaFact]
-    public void DetailMenu_HasOneItemPerPreset_MediumCheckedByDefault()
+    public void DetailMenu_HasOneItemPerPreset_FullCheckedByDefault()
     {
         var (window, _) = Host();
 
         Assert.Equal(MainWindow.DetailPresets.Length, window.DetailMenuItems.Count);
-        Assert.Equal(TreemapLimits.Medium, window.Treemap.Limits);
+        Assert.Equal(TreemapLimits.Full, window.Treemap.Limits);
 
         var checkedItems = window.DetailMenuItems.Where(i => i.IsChecked).ToList();
         var only = Assert.Single(checkedItems);
-        Assert.Contains("Medium", only.Header!.ToString());
+        Assert.Contains("Full", only.Header!.ToString());
     }
 
     [AvaloniaFact]
@@ -278,14 +280,48 @@ public class MainWindowTests
 
         window.Treemap.Limits = TreemapLimits.Low;
         window.Treemap.EnsureLayout();
+        Dispatcher.UIThread.RunJobs();   // the note is posted, not written inline
 
         Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(summary, window.StatusText);   // the scan summary must survive
 
         window.Treemap.Limits = TreemapLimits.High;
         window.Treemap.EnsureLayout();
+        Dispatcher.UIThread.RunJobs();
 
         Assert.Equal("", window.DetailNoteText);
         Assert.Equal(summary, window.StatusText);
+    }
+
+    /// <summary>
+    /// The C:\ bug. A layout that overflows the rectangle cap flips the truncation
+    /// flag, and the flag is computed inside EnsureLayout — which Render calls. Raising
+    /// the event inline meant the handler wrote to the detail-note TextBlock in the
+    /// middle of the render pass, and Avalonia threw "Visual was invalidated during
+    /// the render pass". The renderer then stopped compositing: the scan finished, but
+    /// the window froze on its last frame and never repainted again.
+    /// Only scans large enough to overflow the active rectangle cap ever reached it.
+    /// </summary>
+    [AvaloniaFact]
+    public void TruncationDuringRender_DoesNotKillTheRenderPass()
+    {
+        var (window, _) = Host();
+        var wide = TestTree.Seal(TestTree.Dir(@"C:\wide",
+            Enumerable.Range(0, TreemapLimits.Low.MaxRects * 2)
+                .Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
+        window.Treemap.Limits = TreemapLimits.Low;
+        window.LoadTree(wide);
+
+        // A real render pass, which is what calls EnsureLayout and trips the flag.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(window.Treemap.LayoutTruncated);
+        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
+
+        // Still rendering: a second pass must work too, and the note must not flicker.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
     }
 }

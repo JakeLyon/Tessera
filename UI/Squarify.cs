@@ -19,10 +19,22 @@ public readonly record struct TreemapLimits(double MinSide, double MinArea, int 
 {
     public static readonly TreemapLimits Low = new(8, 64, 8, 5_000);
 
-    /// <summary>The default. These four values are what the layout has always used.</summary>
+    /// <summary>
+    /// The cutoffs the layout used before detail limits existed, kept as the baseline
+    /// the presets are measured against. No longer the app's default — see <see cref="Full"/>.
+    /// </summary>
     public static readonly TreemapLimits Medium = new(4, 20, 24, 20_000);
 
     public static readonly TreemapLimits High = new(2, 8, 40, 100_000);
+
+    /// <summary>
+    /// The app's default: everything big enough to see. MinSide 1 is gated as
+    /// <c>MinSide + 2</c> below to offset the per-level <c>Deflate(1)</c>, so the
+    /// recursion stops at 3px — the narrowest rectangle that still leaves an inner
+    /// pixel to draw. Past that a rectangle is sub-pixel and cannot be shown at all,
+    /// which is what makes this "full" in the only sense the screen allows.
+    /// </summary>
+    public static readonly TreemapLimits Full = new(1, 2, 64, 500_000);
 }
 
 /// <summary>
@@ -40,6 +52,9 @@ public static class Squarify
     public static bool Layout(FsNode dir, Rect rect, int depth, List<TmRect> output,
         TreemapLimits? limits = null)
     {
+        // Medium, not the app default: this fallback exists for callers that omit the
+        // argument, and pins the historical cutoffs the layout tests are written against.
+        // The app always passes TreemapControl.Limits explicitly.
         var effective = limits ?? TreemapLimits.Medium;
         LayoutCore(dir, rect, depth, output, effective);
         return output.Count >= effective.MaxRects;

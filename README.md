@@ -10,7 +10,7 @@ Tessera is a fast disk space analyzer for Windows 10 and 11. It scans a drive or
 
 No installer, no account, no telemetry. One file, and it runs.
 
-![Tessera scanning C:\Program Files\dotnet](docs/screenshot.png)
+![Tessera showing a full 569 GB C:\ drive — 1.17 million files in one view](docs/screenshot.png)
 
 **[Download the latest release →](https://github.com/JakeLyon/Tessera/releases/latest)**
 
@@ -20,7 +20,7 @@ No installer, no account, no telemetry. One file, and it runs.
 - **Squarified treemap** (Bruls et al.) — rectangle area ∝ file size, colored by file extension, click to select, double-click to drill in, Up button and breadcrumb to navigate back. Rendering is cached to a bitmap, so hover/selection is instant even on dense views.
 - **Size-sorted tree** with size and %-of-parent columns (virtualized `TreeDataGrid`, handles 10k-child folders smoothly).
 - **Context menu** — open in Explorer, copy path, delete to Recycle Bin, rescan a single subtree (sizes re-propagate to the root without a full rescan), top-100 files under a folder.
-- **Detail limits** — **View ▸ Detail** picks Low / Medium / High, trading rectangles for responsiveness. A drive scan can otherwise lay out far more rectangles than are readable, and every one is scanned on each mouse move. When a limit hides part of the view the status bar says so, so the treemap never quietly under-reports.
+- **Detail limits** — **View ▸ Detail** picks Low / Medium / High / Full, trading rectangles for responsiveness. **Full is the default**: every rectangle big enough to see, up to 500,000 of them, so a whole drive fits in one view. Lower it if you prefer a coarser picture. When a limit does hide part of the view the status bar says so, so the treemap never quietly under-reports.
 - **Top 100 largest files** — flat list for quick wins, double-click to reveal in Explorer.
 - **Safe by construction** — junctions/symlinks are shown but never followed (no cycles, no double-counting); access-denied folders are flagged and counted, never fatal.
 - **Headless CLI mode** — `Tessera.exe --scan <path>` prints totals without opening a window.
@@ -120,7 +120,8 @@ Design notes:
 - `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1** simply because that is the version this was built and tested against. It is **MIT at every version** — the licence text lives in `licence.md` in the upstream repo; the NuGet packages just carry no licence metadata, which is why automated scanners report it as "unknown". The upstream repo is **archived**, so treat it as a frozen dependency.
 - **Nothing fails silently.** The UI runs on `async void` event handlers, where a throw is unhandled by definition, so every menu and toolbar action goes through `MainWindow.Guarded` and lands in the status bar. `Dispatcher.UIThread.UnhandledException` catches whatever slips past and keeps the window alive. Nothing is written to disk — the app reports and carries on.
 - The scanner's workers share a pending-directory counter, and a worker that fails without decrementing it strands the rest in a spin loop. The decrement lives in a `finally` for that reason; `Scanner.OnDirectoryEnter` exists so the case stays regression-tested.
-- Detail limits are **session-only** by design — the app writes nothing outside its own folder. `TreemapLimits.Medium` holds the cutoffs the layout has always used, so the default view is unchanged; only the rectangle cap is new.
+- Detail limits are **session-only** by design — the app writes nothing outside its own folder. `TreemapLimits.Full` is the default: `MinSide` 1 means the layout recurses into anything at least 3px across (the gate adds 2 to offset the per-level `Deflate(1)`), which is as far as a screen can go — below that a rectangle has no pixel to occupy. `TreemapLimits.Medium` keeps the cutoffs the layout used before the limits existed, as the baseline the presets are measured against.
+- Because Full is the default, hover cost must not scale with the rectangle count. `TreemapControl` indexes each layout twice: a `Dictionary<FsNode, int>` for the two per-frame outline lookups, and a 32px bucket grid (flat CSR arrays, not a list per cell) for hit-testing. `HitTestLinear` is kept as the definition of correct, and a test asserts the grid agrees with it point for point.
 
 ## Licence
 

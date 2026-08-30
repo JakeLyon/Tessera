@@ -440,8 +440,9 @@ public sealed class MainWindow : Window
     internal static readonly DetailPreset[] DetailPresets =
     [
         new("Low", "fewest rectangles, fastest", TreemapLimits.Low),
-        new("Medium", "the default", TreemapLimits.Medium),
-        new("High", "most detail, slowest", TreemapLimits.High),
+        new("Medium", "balanced", TreemapLimits.Medium),
+        new("High", "more detail", TreemapLimits.High),
+        new("Full", "everything visible — the default", TreemapLimits.Full),
     ];
 
     private Menu BuildMenuBar()

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Tessera.Models;
 using Tessera.UI;
 using Xunit;
@@ -36,22 +37,22 @@ public class TreemapLimitsTests
         Enumerable.Range(0, count).Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
 
     [AvaloniaFact]
-    public void DefaultLimits_AreMedium()
+    public void DefaultLimits_AreFull()
     {
         var (_, map) = Host(DeepTree());
-        Assert.Equal(TreemapLimits.Medium, map.Limits);
+        Assert.Equal(TreemapLimits.Full, map.Limits);
     }
 
     [AvaloniaFact]
     public void LoweringLimits_RecomputesLayoutWithFewerRectangles()
     {
         var (_, map) = Host(DeepTree());
-        int atMedium = map.EnsureLayout().Count;
+        int atDefault = map.EnsureLayout().Count;
 
         map.Limits = TreemapLimits.Low;
         int atLow = map.EnsureLayout().Count;
 
-        Assert.True(atLow < atMedium, $"Low produced {atLow}, Medium {atMedium}");
+        Assert.True(atLow < atDefault, $"Low produced {atLow}, the default {atDefault}");
     }
 
     [AvaloniaFact]
@@ -73,7 +74,7 @@ public class TreemapLimitsTests
         var (_, map) = Host(DeepTree());
         var before = map.EnsureLayout();
 
-        map.Limits = TreemapLimits.Medium;
+        map.Limits = TreemapLimits.Full;   // already the default
 
         // Same list instance, not merely an equal one: no recompute happened.
         Assert.Same(before, map.EnsureLayout());
@@ -93,8 +94,13 @@ public class TreemapLimitsTests
         map.InvalidateLayout();
         map.EnsureLayout();          // recomputed, but still truncated
 
-        Assert.Equal(new[] { true }, events);
+        // The flag updates immediately; the notification is posted, because
+        // EnsureLayout runs inside the render pass and handlers touch other visuals.
         Assert.True(map.LayoutTruncated);
+        Assert.Empty(events);
+
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(new[] { true }, events);
     }
 
     [AvaloniaFact]
@@ -110,6 +116,7 @@ public class TreemapLimitsTests
 
         map.Limits = TreemapLimits.High;
         map.EnsureLayout();
+        Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(new[] { false }, events);
         Assert.False(map.LayoutTruncated);
@@ -125,5 +132,26 @@ public class TreemapLimitsTests
 
         var target = layout[0];
         Assert.Same(target.Node, map.HitTest(target.Bounds.Center));
+    }
+
+    /// <summary>
+    /// The point of making Full the default: a tree that Medium would have cut short —
+    /// and told the user about — now lays out whole, with no truncation note. Sized
+    /// comfortably past Medium's 20,000 cap and well under Full's 500,000.
+    /// </summary>
+    [AvaloniaFact]
+    public void AtTheDefault_ATreeThatWouldOverflowMedium_IsNotTruncated()
+    {
+        var (_, map) = Host(WideTree(TreemapLimits.Medium.MaxRects * 3));
+
+        int atDefault = map.EnsureLayout().Count;
+        Assert.False(map.LayoutTruncated);
+        Assert.True(atDefault > TreemapLimits.Medium.MaxRects,
+            $"expected more than Medium's cap, got {atDefault}");
+
+        // The same tree at the old default is cut short and says so.
+        map.Limits = TreemapLimits.Medium;
+        map.EnsureLayout();
+        Assert.True(map.LayoutTruncated);
     }
 }

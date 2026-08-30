@@ -33,13 +33,14 @@ public class SquarifyLimitsTests
     private static FsNode Wide(int count) => TestTree.Seal(TestTree.Dir("root",
         Enumerable.Range(0, count).Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
 
-    public static TheoryData<string> PresetNames => new() { "Low", "Medium", "High" };
+    public static TheoryData<string> PresetNames => new() { "Low", "Medium", "High", "Full" };
 
     private static TreemapLimits Preset(string name) => name switch
     {
         "Low" => TreemapLimits.Low,
         "Medium" => TreemapLimits.Medium,
         "High" => TreemapLimits.High,
+        "Full" => TreemapLimits.Full,
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
 
@@ -67,9 +68,11 @@ public class SquarifyLimitsTests
         int low = Layout(tree, TreemapLimits.Low, 4000, 4000).Rects.Count;
         int medium = Layout(tree, TreemapLimits.Medium, 4000, 4000).Rects.Count;
         int high = Layout(tree, TreemapLimits.High, 4000, 4000).Rects.Count;
+        int full = Layout(tree, TreemapLimits.Full, 4000, 4000).Rects.Count;
 
         Assert.True(low <= medium, $"Low produced {low}, Medium {medium}");
         Assert.True(medium <= high, $"Medium produced {medium}, High {high}");
+        Assert.True(high <= full, $"High produced {high}, Full {full}");
     }
 
     // ---- Rectangle cap ----
@@ -89,7 +92,19 @@ public class SquarifyLimitsTests
     [Fact]
     public void CapIsNeverExceeded_ForAnyPreset()
     {
-        foreach (var limits in new[] { TreemapLimits.Low, TreemapLimits.Medium, TreemapLimits.High })
+        // This builds one file per unit of budget, so Full's real cap of 500,000 would
+        // cost half a million nodes here for no extra signal — the cap is enforced by
+        // the same two lines in FlushRow whatever its value. Exercise Full's cutoffs
+        // against a tractable stand-in cap instead.
+        var presets = new[]
+        {
+            TreemapLimits.Low,
+            TreemapLimits.Medium,
+            TreemapLimits.High,
+            TreemapLimits.Full with { MaxRects = 20_000 },
+        };
+
+        foreach (var limits in presets)
         {
             var (rects, _) = Layout(Wide(limits.MaxRects + 500), limits, 4000, 4000);
             Assert.True(rects.Count <= limits.MaxRects,

@@ -4,13 +4,14 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Rendering;
+using Avalonia.Threading;
 using Tessera.Models;
 using Tessera.Util;
 
 namespace Tessera.UI;
 
 /// <summary>
-/// SpaceMonger-style squarified treemap. The layout (a flat list of rectangles,
+/// Squarified treemap of a scanned tree. The layout (a flat list of rectangles,
 /// parent-first) is cached and only recomputed when the root node, the data, or the
 /// control size changes; hover/selection changes just repaint from the cache.
 /// </summary>
@@ -26,7 +27,18 @@ public sealed class TreemapControl : Control
     // per layout change; hover/selection frames just blit it and draw two outlines.
     private RenderTargetBitmap? _scene;
     private bool _sceneDirty = true;
-    private TreemapLimits _limits = TreemapLimits.Medium;
+    private TreemapLimits _limits = TreemapLimits.Full;
+
+    // Node -> index into _layout. DrawOutline runs twice per frame and used to scan the
+    // whole list for one node; at Full's half-million rectangles that is the difference
+    // between an O(1) probe and two full passes every time the pointer moves.
+    private readonly Dictionary<FsNode, int> _indexByNode = new(ReferenceEqualityComparer.Instance);
+    // Uniform bucket grid over the control, built with the layout. Hit-testing walks one
+    // cell instead of the entire list, so pointer cost stops scaling with detail.
+    private int[]? _cellStart;      // CSR offsets, length _cols * _rows + 1
+    private int[]? _cellItems;      // rect indices, ascending within each cell
+    private int _cols, _rows;
+    private double _cellSize;
 
     private static readonly Dictionary<string, IBrush> s_extBrushes = new();
     private static readonly IBrush s_dirFill = new SolidColorBrush(Color.FromRgb(0x3a, 0x3f, 0x46));
@@ -110,16 +122,95 @@ public sealed class TreemapControl : Control
                 && Squarify.Layout(_root, new Rect(Bounds.Size).Deflate(1), 0, _layout, _limits);
             _layoutDirty = false;
             _sceneDirty = true;
+            BuildLookups();
 
             // Only on a transition: EnsureLayout runs per render, and the window would
             // otherwise rewrite the status bar on every frame.
             if (truncated != LayoutTruncated)
             {
                 LayoutTruncated = truncated;
-                LayoutTruncatedChanged?.Invoke(truncated);
+                // Posted, never called inline. Render calls EnsureLayout, and the
+                // handler writes to a TextBlock — mutating another visual mid-pass
+                // throws "Visual was invalidated during the render pass", which kills
+                // the renderer, so the window freezes on its last frame. Only layouts
+                // over MaxRects transition, so this hit exactly the big scans (C:\).
+                if (LayoutTruncatedChanged is { } handler)
+                    Dispatcher.UIThread.Post(() => handler(truncated));
             }
         }
         return _layout;
+    }
+
+    /// <summary>
+    /// Build the node index and the hit-test grid for the current layout. Both are pure
+    /// functions of <see cref="_layout"/> and are rebuilt with it.
+    /// </summary>
+    private void BuildLookups()
+    {
+        _indexByNode.Clear();
+        _indexByNode.EnsureCapacity(_layout.Count);
+        for (int i = 0; i < _layout.Count; i++)
+            _indexByNode[_layout[i].Node] = i;   // each node is emitted exactly once
+
+        if (_layout.Count == 0 || Bounds.Width < 1 || Bounds.Height < 1)
+        {
+            _cellStart = null;
+            _cellItems = null;
+            return;
+        }
+
+        // ~32px cells: small enough that a cell holds few rectangles, large enough that
+        // a full-canvas parent is not copied into thousands of buckets.
+        _cellSize = 32;
+        _cols = Math.Max(1, (int)Math.Ceiling(Bounds.Width / _cellSize));
+        _rows = Math.Max(1, (int)Math.Ceiling(Bounds.Height / _cellSize));
+
+        // CSR build: count per cell, prefix-sum to offsets, then fill. One int[] for the
+        // whole grid rather than a List<int> per cell, which at this size would be
+        // hundreds of thousands of allocations.
+        int cellCount = _cols * _rows;
+        var counts = new int[cellCount + 1];
+        for (int i = 0; i < _layout.Count; i++)
+        {
+            CellRange(_layout[i].Bounds, out int c0, out int r0, out int c1, out int r1);
+            for (int r = r0; r <= r1; r++)
+                for (int c = c0; c <= c1; c++)
+                    counts[r * _cols + c]++;
+        }
+
+        var start = new int[cellCount + 1];
+        int running = 0;
+        for (int i = 0; i < cellCount; i++)
+        {
+            start[i] = running;
+            running += counts[i];
+        }
+        start[cellCount] = running;
+
+        var items = new int[running];
+        var cursor = new int[cellCount];
+        for (int i = 0; i < _layout.Count; i++)
+        {
+            CellRange(_layout[i].Bounds, out int c0, out int r0, out int c1, out int r1);
+            for (int r = r0; r <= r1; r++)
+                for (int c = c0; c <= c1; c++)
+                {
+                    int cell = r * _cols + c;
+                    items[start[cell] + cursor[cell]++] = i;   // ascending: i grows
+                }
+        }
+
+        _cellStart = start;
+        _cellItems = items;
+    }
+
+    /// <summary>Clamped grid cells a rectangle overlaps.</summary>
+    private void CellRange(Rect b, out int c0, out int r0, out int c1, out int r1)
+    {
+        c0 = Math.Clamp((int)(b.X / _cellSize), 0, _cols - 1);
+        r0 = Math.Clamp((int)(b.Y / _cellSize), 0, _rows - 1);
+        c1 = Math.Clamp((int)(b.Right / _cellSize), 0, _cols - 1);
+        r1 = Math.Clamp((int)(b.Bottom / _cellSize), 0, _rows - 1);
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -129,6 +220,37 @@ public sealed class TreemapControl : Control
     }
 
     public FsNode? HitTest(Point p)
+    {
+        var layout = EnsureLayout();
+        if (layout.Count == 0)
+            return null;
+
+        if (_cellStart is { } start && _cellItems is { } items)
+        {
+            if (p.X < 0 || p.Y < 0 || p.X >= _cols * _cellSize || p.Y >= _rows * _cellSize)
+                return HitTestLinear(p);   // outside the grid; the oracle still answers correctly
+
+            int cell = Math.Clamp((int)(p.Y / _cellSize), 0, _rows - 1) * _cols
+                     + Math.Clamp((int)(p.X / _cellSize), 0, _cols - 1);
+            // Descending: indices ascend within a cell and children are appended after
+            // their parent, so the last match is the deepest — same rule as the scan below.
+            for (int k = start[cell + 1] - 1; k >= start[cell]; k--)
+            {
+                int i = items[k];
+                if (layout[i].Bounds.Contains(p))
+                    return layout[i].Node;
+            }
+            return null;
+        }
+
+        return HitTestLinear(p);
+    }
+
+    /// <summary>
+    /// The original full scan. Kept as the definition of correct: the grid is an index
+    /// over this, and a test asserts the two agree point for point.
+    /// </summary>
+    internal FsNode? HitTestLinear(Point p)
     {
         var layout = EnsureLayout();
         // Backwards: children are appended after their parent, so the first hit is the deepest node.
@@ -240,14 +362,8 @@ public sealed class TreemapControl : Control
     private void DrawOutline(DrawingContext ctx, FsNode? node, Pen pen)
     {
         if (node is null) return;
-        foreach (var tm in _layout)
-        {
-            if (ReferenceEquals(tm.Node, node))
-            {
-                ctx.DrawRectangle(pen, tm.Bounds.Deflate(pen.Thickness / 2));
-                return;
-            }
-        }
+        if (_indexByNode.TryGetValue(node, out int i))
+            ctx.DrawRectangle(pen, _layout[i].Bounds.Deflate(pen.Thickness / 2));
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
