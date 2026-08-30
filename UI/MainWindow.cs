@@ -469,8 +469,24 @@ public sealed class MainWindow : Window
 
         var view = new MenuItem { Header = "_View" };
         view.Items.Add(detail);
-        return new Menu { Items = { view } };
+
+        // The only in-app route to the version, the licence and the third-party notices.
+        // The exe is routinely moved on its own, away from the files beside it, so this
+        // is what the attribution actually travels in.
+        AboutMenuItem = new MenuItem { Header = "_About Tessera" };
+        AboutMenuItem.Click += (_, _) => Guarded("Opening About", () =>
+        {
+            new AboutWindow().Show(this);
+            return Task.CompletedTask;
+        });
+        var help = new MenuItem { Header = "_Help" };
+        help.Items.Add(AboutMenuItem);
+
+        return new Menu { Items = { view, help } };
     }
+
+    /// <summary>Help ▸ About Tessera (test seam).</summary>
+    internal MenuItem AboutMenuItem { get; private set; } = null!;
 
     private readonly List<MenuItem> _detailItems = new();
 

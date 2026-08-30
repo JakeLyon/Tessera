@@ -27,11 +27,18 @@
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
-  <!-- The MIT licences of the bundled dependencies require their notices to travel
-       with any distributed copy, so ship both files next to the executable. -->
+  <!-- The licences of the bundled dependencies require their notices to travel with any
+       distributed copy, and a bare single-file exe handed to someone is a distributed
+       copy. Embedding is what makes that copy self-sufficient: Help > About reads these
+       out of the assembly, never off disk. The loose files stay as well, for the release
+       zip and for a framework-dependent build's output folder.
+       LogicalName is pinned so the resource keys do not depend on MSBuild's path
+       mangling; AboutWindow looks them up by these exact names. -->
   <ItemGroup>
     <None Include="LICENSE" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <EmbeddedResource Include="LICENSE" LogicalName="Tessera.LICENSE" Visible="false" />
+    <EmbeddedResource Include="THIRD-PARTY-NOTICES.txt" LogicalName="Tessera.THIRD-PARTY-NOTICES.txt" Visible="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Tessera.Tests" />

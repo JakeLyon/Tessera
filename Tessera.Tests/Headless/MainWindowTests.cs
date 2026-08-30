@@ -223,6 +223,29 @@ public class MainWindowTests
     }
 
     // =====================================================================
+    // Help ▸ About
+    // =====================================================================
+
+    /// <summary>
+    /// The third-party notices are embedded in the assembly precisely so a lone exe
+    /// still carries them, which only helps if there is a way to reach them. This is it.
+    /// </summary>
+    [AvaloniaFact]
+    public void HelpMenu_AboutOpensTheAboutWindow()
+    {
+        var (window, _) = Host();
+
+        Assert.Contains("About", window.AboutMenuItem.Header!.ToString());
+
+        window.AboutMenuItem.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        Dispatcher.UIThread.RunJobs();   // Guarded runs the body on the dispatcher
+
+        var about = Assert.Single(window.OwnedWindows.OfType<AboutWindow>());
+        Assert.NotEmpty(about.NoticesText);
+        about.Close();
+    }
+
+    // =====================================================================
     // View ▸ Detail
     // =====================================================================
 
