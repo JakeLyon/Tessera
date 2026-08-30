@@ -66,7 +66,7 @@ public class ShellOpsTests
     {
         // The bug: Process.Start throws Win32Exception when gio/xdg-open/osascript
         // is absent, and the exception escaped an async void handler, killing the app.
-        var psi = new ProcessStartInfo($"clone-nonexistent-helper-{Guid.NewGuid():N}")
+        var psi = new ProcessStartInfo($"tessera-nonexistent-helper-{Guid.NewGuid():N}")
         {
             UseShellExecute = false,
             CreateNoWindow = true,

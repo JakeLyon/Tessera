@@ -108,10 +108,6 @@ proper exit codes for automation.
 find large files Windows, free up disk space, visualize disk usage, treemap disk,
 C drive full, disk cleanup tool, portable disk space analyzer
 
-**Comparison terms** people actually search — worth a comparison page each:
-WinDirStat alternative, TreeSize alternative, SpaceSniffer alternative,
-SpaceMonger alternative, WizTree alternative, DaisyDisk for Windows.
-
 **Title tag (≤60 chars):**
 > Tessera — Disk Space Analyzer for Windows
 
@@ -123,9 +119,9 @@ SpaceMonger alternative, WizTree alternative, DaisyDisk for Windows.
 - Lead with the problem ("C: drive full", "what's taking up space"), not the
   technique. Almost nobody searches for "treemap"; a great many people search for
   "why is my hard drive full".
-- Name the competitors on comparison pages. That is where the search volume is,
-  and Tessera's honest differentiators are real: portability, no telemetry, and
-  surfacing when the view is incomplete.
+- Build the pages around the honest differentiators. They are real, and they are the
+  reason to choose Tessera: portability, no telemetry, and saying so on screen when
+  the view is incomplete.
 - Do not claim "fastest" or benchmark against a named competitor without a
   reproducible measurement to publish. In this category the audience is technical
   and will check.
