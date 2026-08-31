@@ -246,105 +246,105 @@ public class MainWindowTests
     }
 
     // =====================================================================
-    // View ▸ Detail
+    // View ▸ Colour, and free space
     // =====================================================================
 
     [AvaloniaFact]
-    public void DetailMenu_HasOneItemPerPreset_FullCheckedByDefault()
+    public void ColourMenu_HasOneItemPerChoice_DepthCheckedByDefault()
     {
         var (window, _) = Host();
 
-        Assert.Equal(MainWindow.DetailPresets.Length, window.DetailMenuItems.Count);
-        Assert.Equal(TreemapLimits.Full, window.Treemap.Limits);
+        Assert.Equal(MainWindow.ColorChoices.Length, window.ColorMenuItems.Count);
+        Assert.Equal(TreemapColorMode.Depth, window.Treemap.ColorMode);
 
-        var checkedItems = window.DetailMenuItems.Where(i => i.IsChecked).ToList();
-        var only = Assert.Single(checkedItems);
-        Assert.Contains("Full", only.Header!.ToString());
+        var only = Assert.Single(window.ColorMenuItems, i => i.IsChecked);
+        Assert.Contains("Depth", only.Header!.ToString());
     }
 
     [AvaloniaFact]
-    public void DetailMenu_ChoosingAPreset_AppliesItToTheTreemap()
+    public void ColourMenu_ChoosingAModeAppliesItToTheTreemap()
     {
         var (window, _) = Host();
 
-        for (int i = 0; i < MainWindow.DetailPresets.Length; i++)
+        for (int i = 0; i < MainWindow.ColorChoices.Length; i++)
         {
-            var item = window.DetailMenuItems[i];
-            item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            window.ColorMenuItems[i].RaiseEvent(
+                new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
 
-            Assert.Equal(MainWindow.DetailPresets[i].Limits, window.Treemap.Limits);
+            Assert.Equal(MainWindow.ColorChoices[i].Mode, window.Treemap.ColorMode);
         }
     }
 
     [AvaloniaFact]
-    public void DetailMenu_ItemsShareARadioGroup_SoTheChoiceIsExclusive()
+    public void ColourMenu_ItemsShareARadioGroup_SoTheChoiceIsExclusive()
     {
         var (window, _) = Host();
 
-        Assert.All(window.DetailMenuItems, item =>
+        Assert.All(window.ColorMenuItems, item =>
         {
             Assert.Equal(MenuItemToggleType.Radio, item.ToggleType);
-            Assert.Equal("TreemapDetail", item.GroupName);
+            Assert.Equal("TreemapColour", item.GroupName);
         });
     }
 
     [AvaloniaFact]
-    public void TruncationNote_AppearsAndClears_WithoutTouchingTheScanSummary()
+    public void FreeSpaceMenu_IsOffByDefault_AndTogglesTheTreemap()
     {
         var (window, _) = Host();
-        // More files in one directory than Low's whole rectangle budget.
-        var wide = TestTree.Seal(TestTree.Dir(@"C:\wide",
-            Enumerable.Range(0, TreemapLimits.Low.MaxRects * 2)
-                .Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
-        window.LoadTree(wide);
+        Assert.False(window.Treemap.ShowFreeSpace);
+        Assert.Equal(MenuItemToggleType.CheckBox, window.FreeSpaceMenuItem.ToggleType);
 
-        string summary = window.StatusText;
-        Assert.Equal("", window.DetailNoteText);
+        window.FreeSpaceMenuItem.IsChecked = true;
+        window.FreeSpaceMenuItem.RaiseEvent(
+            new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
 
-        window.Treemap.Limits = TreemapLimits.Low;
-        window.Treemap.EnsureLayout();
-        Dispatcher.UIThread.RunJobs();   // the note is posted, not written inline
-
-        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(summary, window.StatusText);   // the scan summary must survive
-
-        window.Treemap.Limits = TreemapLimits.High;
-        window.Treemap.EnsureLayout();
-        Dispatcher.UIThread.RunJobs();
-
-        Assert.Equal("", window.DetailNoteText);
-        Assert.Equal(summary, window.StatusText);
+        Assert.True(window.Treemap.ShowFreeSpace);
     }
 
     /// <summary>
-    /// The C:\ bug. A layout that overflows the rectangle cap flips the truncation
-    /// flag, and the flag is computed inside EnsureLayout — which Render calls. Raising
-    /// the event inline meant the handler wrote to the detail-note TextBlock in the
-    /// middle of the render pass, and Avalonia threw "Visual was invalidated during
-    /// the render pass". The renderer then stopped compositing: the scan finished, but
-    /// the window froze on its last frame and never repainted again.
-    /// Only scans large enough to overflow the active rectangle cap ever reached it.
+    /// Free space beside a scan of one folder would be measuring that folder against the
+    /// whole disk, which says nothing about it — so only a drive root reports any.
     /// </summary>
     [AvaloniaFact]
-    public void TruncationDuringRender_DoesNotKillTheRenderPass()
+    public void FreeSpaceOf_OnlyAnswersForADriveRoot()
+    {
+        Assert.Null(MainWindow.FreeSpaceOf(Path.GetTempPath()));
+        Assert.Null(MainWindow.FreeSpaceOf(@"Z:\no\such\place"));
+
+        if (OperatingSystem.IsWindows() && Path.GetPathRoot(Environment.SystemDirectory) is { } root)
+            Assert.NotNull(MainWindow.FreeSpaceOf(root));
+    }
+
+    /// <summary>
+    /// The C:\ bug, kept as a guard after the feature that caused it was removed. A
+    /// truncation notice used to be raised from inside EnsureLayout, which Render calls,
+    /// so the handler wrote to a TextBlock mid-pass; Avalonia threw "Visual was
+    /// invalidated during the render pass", the renderer stopped compositing, and the
+    /// window froze on its last frame with the scan apparently hung. Nothing writes to
+    /// another visual from the layout path now, and this pins that over a layout big
+    /// enough to be realistic, while colours and free space change under it.
+    /// </summary>
+    [AvaloniaFact]
+    public void BigLayout_RendersRepeatedly_WithoutKillingTheRenderPass()
     {
         var (window, _) = Host();
         var wide = TestTree.Seal(TestTree.Dir(@"C:\wide",
-            Enumerable.Range(0, TreemapLimits.Low.MaxRects * 2)
-                .Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
-        window.Treemap.Limits = TreemapLimits.Low;
+            Enumerable.Range(0, 30_000).Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
         window.LoadTree(wide);
 
-        // A real render pass, which is what calls EnsureLayout and trips the flag.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        string summary = window.StatusText;
+
+        window.Treemap.ColorMode = TreemapColorMode.Extension;
+        window.Treemap.FreeSpaceBytes = 5_000_000;
+        window.Treemap.ShowFreeSpace = true;
+
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.True(window.Treemap.LayoutTruncated);
-        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
-
-        // Still rendering: a second pass must work too, and the note must not flicker.
-        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-        Dispatcher.UIThread.RunJobs();
-        Assert.Contains("raise View", window.DetailNoteText, StringComparison.OrdinalIgnoreCase);
+        // Still rendering, and the scan summary was never overwritten from the render path.
+        Assert.Equal(summary, window.StatusText);
+        Assert.NotEmpty(window.Treemap.EnsureLayout());
     }
 }

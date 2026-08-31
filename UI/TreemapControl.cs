@@ -27,11 +27,16 @@ public sealed class TreemapControl : Control
     // per layout change; hover/selection frames just blit it and draw two outlines.
     private RenderTargetBitmap? _scene;
     private bool _sceneDirty = true;
-    private TreemapLimits _limits = TreemapLimits.Full;
+    private TreemapColorMode _colorMode = TreemapColorMode.Depth;
+    private long? _freeSpaceBytes;
+    private bool _showFreeSpace;
+    /// <summary>The free-space block, when one is shown; empty otherwise.</summary>
+    private Rect _freeRect;
 
     // Node -> index into _layout. DrawOutline runs twice per frame and used to scan the
-    // whole list for one node; at Full's half-million rectangles that is the difference
-    // between an O(1) probe and two full passes every time the pointer moves.
+    // whole list for one node; on a drive-sized layout of several hundred thousand
+    // rectangles that is the difference between an O(1) probe and two full passes every
+    // time the pointer moves.
     private readonly Dictionary<FsNode, int> _indexByNode = new(ReferenceEqualityComparer.Instance);
     // Uniform bucket grid over the control, built with the layout. Hit-testing walks one
     // cell instead of the entire list, so pointer cost stops scaling with detail.
@@ -53,12 +58,6 @@ public sealed class TreemapControl : Control
     public event Action<FsNode>? NodeDoubleClicked;
     public event Action<FsNode>? NodeRightClicked;
     public event Action<FsNode?>? HoverChanged;
-    /// <summary>
-    /// Raised when the layout starts or stops being cut short by the rectangle cap.
-    /// The layout is lazy — recomputed during render — so this is the only way for the
-    /// window to learn that the view is incomplete without polling every frame.
-    /// </summary>
-    public event Action<bool>? LayoutTruncatedChanged;
 
     public TreemapControl()
     {
@@ -79,20 +78,55 @@ public sealed class TreemapControl : Control
         }
     }
 
-    /// <summary>How far the layout may go. Changing it re-lays out on the next render.</summary>
-    public TreemapLimits Limits
+    /// <summary>
+    /// What the fill colours mean. Changing it repaints but does not re-lay out — the
+    /// geometry is identical, so only the cached scene bitmap is stale.
+    /// </summary>
+    public TreemapColorMode ColorMode
     {
-        get => _limits;
+        get => _colorMode;
         set
         {
-            if (_limits.Equals(value)) return;
-            _limits = value;
+            if (_colorMode == value) return;
+            _colorMode = value;
+            _sceneDirty = true;
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// Unused bytes on the scanned drive, or null when the scan root is not a drive and
+    /// free space has no meaning. Setting it does not on its own show anything.
+    /// </summary>
+    public long? FreeSpaceBytes
+    {
+        get => _freeSpaceBytes;
+        set
+        {
+            if (_freeSpaceBytes == value) return;
+            _freeSpaceBytes = value;
             InvalidateLayout();
         }
     }
 
-    /// <summary>True when the rectangle cap cut the last layout short.</summary>
-    public bool LayoutTruncated { get; private set; }
+    /// <summary>
+    /// Give unused disk space its own block, so the picture is the whole drive rather
+    /// than only the part of it that is full. Ignored when <see cref="FreeSpaceBytes"/>
+    /// is null.
+    /// </summary>
+    public bool ShowFreeSpace
+    {
+        get => _showFreeSpace;
+        set
+        {
+            if (_showFreeSpace == value) return;
+            _showFreeSpace = value;
+            InvalidateLayout();
+        }
+    }
+
+    /// <summary>The free-space block, or an empty rect when none is shown (test seam).</summary>
+    internal Rect FreeSpaceRect => _freeRect;
 
     public FsNode? SelectedNode
     {
@@ -118,27 +152,55 @@ public sealed class TreemapControl : Control
         if (_layoutDirty)
         {
             _layout.Clear();
-            bool truncated = _root is not null
-                && Squarify.Layout(_root, new Rect(Bounds.Size).Deflate(1), 0, _layout, _limits);
+            var full = new Rect(Bounds.Size).Deflate(1);
+            _freeRect = SplitOffFreeSpace(ref full);
+            if (_root is not null)
+                Squarify.Layout(_root, full, 0, _layout);
             _layoutDirty = false;
             _sceneDirty = true;
             BuildLookups();
-
-            // Only on a transition: EnsureLayout runs per render, and the window would
-            // otherwise rewrite the status bar on every frame.
-            if (truncated != LayoutTruncated)
-            {
-                LayoutTruncated = truncated;
-                // Posted, never called inline. Render calls EnsureLayout, and the
-                // handler writes to a TextBlock — mutating another visual mid-pass
-                // throws "Visual was invalidated during the render pass", which kills
-                // the renderer, so the window freezes on its last frame. Only layouts
-                // over MaxRects transition, so this hit exactly the big scans (C:\).
-                if (LayoutTruncatedChanged is { } handler)
-                    Dispatcher.UIThread.Post(() => handler(truncated));
-            }
         }
         return _layout;
+    }
+
+    /// <summary>
+    /// Take the unused-space share off <paramref name="area"/> and return it as its own
+    /// block, so used and free together fill the pane and each keeps its true proportion.
+    /// Returns an empty rect (leaving <paramref name="area"/> alone) when there is no free
+    /// space to show.
+    ///
+    /// The block is deliberately NOT a node in the layout. A synthetic <see cref="FsNode"/>
+    /// would reach <c>MainWindow.PathTo</c>, where <c>Array.IndexOf</c> on a parent that
+    /// does not contain it yields -1, and <c>DeleteNodeAsync</c>, whose guards it would
+    /// pass — the size would then be subtracted from every real ancestor. Keeping it out
+    /// of the tree means hit-testing returns only real nodes and none of that can happen.
+    /// </summary>
+    private Rect SplitOffFreeSpace(ref Rect area)
+    {
+        if (!_showFreeSpace || _freeSpaceBytes is not { } free || free <= 0)
+            return default;
+        if (_root is not { Size: > 0 } root)
+            return default;
+
+        double fraction = (double)free / (free + root.Size);
+        if (fraction <= 0 || fraction >= 1)
+            return default;
+
+        // Split along the longer axis so neither block becomes a sliver.
+        if (area.Width >= area.Height)
+        {
+            double w = area.Width * fraction;
+            var block = new Rect(area.Right - w, area.Y, w, area.Height);
+            area = new Rect(area.X, area.Y, area.Width - w, area.Height);
+            return block;
+        }
+        else
+        {
+            double h = area.Height * fraction;
+            var block = new Rect(area.X, area.Bottom - h, area.Width, h);
+            area = new Rect(area.X, area.Y, area.Width, area.Height - h);
+            return block;
+        }
     }
 
     /// <summary>
@@ -321,10 +383,15 @@ public sealed class TreemapControl : Control
 
     private void DrawScene(DrawingContext ctx)
     {
+        if (_freeRect.Width > 0 && _freeRect.Height > 0)
+        {
+            ctx.FillRectangle(s_freeFill, _freeRect);
+            ctx.DrawRectangle(s_dirBorder, _freeRect.Deflate(0.5));
+        }
+
         foreach (var tm in _layout)
         {
-            var fill = tm.Node.IsDir ? s_dirFill : GetExtensionBrush(tm.Node.Extension);
-            ctx.FillRectangle(fill, tm.Bounds);
+            ctx.FillRectangle(FillFor(tm), tm.Bounds);
             ctx.DrawRectangle(s_dirBorder, tm.Bounds.Deflate(0.5));
         }
 
@@ -349,7 +416,50 @@ public sealed class TreemapControl : Control
             };
             ctx.DrawText(text, new Point(b.X + 3, b.Y + 1));
         }
+
+        if (_freeRect.Width >= 44 && _freeRect.Height >= 15 && _freeSpaceBytes is { } free)
+        {
+            var label = new FormattedText($"Free space — {Format.Bytes(free)}",
+                System.Globalization.CultureInfo.CurrentUICulture,
+                FlowDirection.LeftToRight, s_typeface, 11, s_dirLabelBrush)
+            {
+                MaxTextWidth = Math.Max(4, _freeRect.Width - 6),
+                MaxTextHeight = Math.Max(4, _freeRect.Height - 2),
+                Trimming = TextTrimming.CharacterEllipsis,
+                MaxLineCount = 1,
+            };
+            ctx.DrawText(label, new Point(_freeRect.X + 3, _freeRect.Y + 1));
+        }
     }
+
+    /// <summary>
+    /// Depth colouring follows SpaceMonger, where the hue tells you how deeply nested a
+    /// box is. Its orange/yellow/green ramp was drawn on light grey, so the hues here are
+    /// picked for a dark ground instead: the ramp cycles through distinct hues and lifts
+    /// slightly with depth, which keeps sibling levels separable and both label brushes
+    /// readable at every step.
+    /// </summary>
+    private static readonly IBrush[] s_depthFills =
+    [
+        new SolidColorBrush(Color.FromRgb(0x4a, 0x6b, 0x8a)),
+        new SolidColorBrush(Color.FromRgb(0x8a, 0x6a, 0x3f)),
+        new SolidColorBrush(Color.FromRgb(0x4d, 0x7d, 0x5c)),
+        new SolidColorBrush(Color.FromRgb(0x7a, 0x4f, 0x6d)),
+        new SolidColorBrush(Color.FromRgb(0x5b, 0x5f, 0x9c)),
+        new SolidColorBrush(Color.FromRgb(0x8c, 0x5a, 0x4a)),
+        new SolidColorBrush(Color.FromRgb(0x40, 0x7c, 0x84)),
+        new SolidColorBrush(Color.FromRgb(0x77, 0x7f, 0x45)),
+    ];
+
+    private static readonly IBrush s_freeFill = new SolidColorBrush(Color.FromRgb(0x24, 0x27, 0x2b));
+
+    private IBrush FillFor(TmRect tm) => _colorMode switch
+    {
+        // Directories keep the flat grey: their interior is tiled by children, so their
+        // own fill is only ever seen as the 1px border around them.
+        TreemapColorMode.Extension => tm.Node.IsDir ? s_dirFill : GetExtensionBrush(tm.Node.Extension),
+        _ => s_depthFills[tm.Depth % s_depthFills.Length],
+    };
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {

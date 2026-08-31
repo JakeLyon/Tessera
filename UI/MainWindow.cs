@@ -20,7 +20,6 @@ public sealed class MainWindow : Window
     private readonly Button _topButton;
     private readonly TextBlock _crumb;
     private readonly TextBlock _status;
-    private readonly TextBlock _detailNote;
     private readonly TreeDataGrid _tree;
     private readonly TreemapControl _treemap;
     private readonly DispatcherTimer _progressTimer;
@@ -137,19 +136,9 @@ public sealed class MainWindow : Window
 
         // ---- Status bar ----
         _status = new TextBlock { Margin = new Thickness(10, 5), Text = "Pick a drive or folder to scan." };
-        // A separate control from _status: the scan summary lives there and must not be
-        // overwritten every time the treemap re-lays out.
-        _detailNote = new TextBlock
-        {
-            Margin = new Thickness(10, 5),
-            VerticalAlignment = VerticalAlignment.Center,
-            Opacity = 0.75,
-            Text = "",
-        };
-        DockPanel.SetDock(_detailNote, Dock.Right);
         var statusHost = new Border
         {
-            Child = new DockPanel { Children = { _detailNote, _status } },
+            Child = _status,
             BorderThickness = new Thickness(0, 1, 0, 0),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80)),
         };
@@ -165,7 +154,6 @@ public sealed class MainWindow : Window
             _ctxNode = n;
             SelectFromTreemap(n, drill: false);
         };
-        _treemap.LayoutTruncatedChanged += OnLayoutTruncatedChanged;
 
         var center = new Grid
         {
@@ -280,6 +268,7 @@ public sealed class MainWindow : Window
             LoadTree(root);
             // Recorded only on success, so "Rescan" never targets a path that failed.
             _lastPath = path;
+            _treemap.FreeSpaceBytes = FreeSpaceOf(path);
 
             _status.Text =
                 $"{(cancelled ? "Cancelled — partial results. " : "")}" +
@@ -301,6 +290,29 @@ public sealed class MainWindow : Window
             _scanButton.Content = "Rescan";
             _scanButton.IsEnabled = _lastPath is not null;
             _topButton.IsEnabled = _scanRoot is not null;
+        }
+    }
+
+    /// <summary>
+    /// Free bytes on the drive, but only when the scan root IS that drive — free space
+    /// beside a scan of one folder would be comparing it against the whole disk, which
+    /// says nothing about the folder. Null means the treemap shows no free-space block.
+    /// DriveInfo throws on an unready or disconnected drive, so never let that fail a scan
+    /// that has already succeeded.
+    /// </summary>
+    internal static long? FreeSpaceOf(string path)
+    {
+        try
+        {
+            string full = Path.GetFullPath(path);
+            if (!string.Equals(full, Path.GetPathRoot(full), StringComparison.OrdinalIgnoreCase))
+                return null;
+            var drive = new DriveInfo(full);
+            return drive.IsReady ? drive.TotalFreeSpace : null;
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
@@ -435,40 +447,53 @@ public sealed class MainWindow : Window
     // Menu bar
     // =====================================================================
 
-    internal readonly record struct DetailPreset(string Label, string Hint, TreemapLimits Limits);
+    internal readonly record struct ColorChoice(string Label, string Hint, TreemapColorMode Mode);
 
-    internal static readonly DetailPreset[] DetailPresets =
+    internal static readonly ColorChoice[] ColorChoices =
     [
-        new("Low", "fewest rectangles, fastest", TreemapLimits.Low),
-        new("Medium", "balanced", TreemapLimits.Medium),
-        new("High", "more detail", TreemapLimits.High),
-        new("Full", "everything visible — the default", TreemapLimits.Full),
+        new("Depth", "how deeply nested — the default", TreemapColorMode.Depth),
+        new("File type", "by extension", TreemapColorMode.Extension),
     ];
 
     private Menu BuildMenuBar()
     {
-        var detail = new MenuItem { Header = "_Detail" };
-        foreach (var preset in DetailPresets)
+        var colour = new MenuItem { Header = "_Colour" };
+        foreach (var choice in ColorChoices)
         {
-            var captured = preset;
+            var captured = choice;
             var item = new MenuItem
             {
-                Header = $"{preset.Label} — {preset.Hint}",
+                Header = $"{choice.Label} — {choice.Hint}",
                 ToggleType = MenuItemToggleType.Radio,
-                GroupName = "TreemapDetail",
-                IsChecked = preset.Limits.Equals(_treemap.Limits),
+                GroupName = "TreemapColour",
+                IsChecked = choice.Mode == _treemap.ColorMode,
             };
-            item.Click += (_, _) => Guarded("Changing detail", () =>
+            item.Click += (_, _) => Guarded("Changing colours", () =>
             {
-                _treemap.Limits = captured.Limits;
+                _treemap.ColorMode = captured.Mode;
                 return Task.CompletedTask;
             });
-            detail.Items.Add(item);
-            _detailItems.Add(item);
+            colour.Items.Add(item);
+            _colorItems.Add(item);
         }
 
+        // Off by default: it only means anything for a drive scan, and it takes space away
+        // from the data the user came to look at.
+        FreeSpaceMenuItem = new MenuItem
+        {
+            Header = "Show _free space",
+            ToggleType = MenuItemToggleType.CheckBox,
+            IsChecked = _treemap.ShowFreeSpace,
+        };
+        FreeSpaceMenuItem.Click += (_, _) => Guarded("Toggling free space", () =>
+        {
+            _treemap.ShowFreeSpace = FreeSpaceMenuItem.IsChecked;
+            return Task.CompletedTask;
+        });
+
         var view = new MenuItem { Header = "_View" };
-        view.Items.Add(detail);
+        view.Items.Add(colour);
+        view.Items.Add(FreeSpaceMenuItem);
 
         // The only in-app route to the version, the licence and the third-party notices.
         // The exe is routinely moved on its own, away from the files beside it, so this
@@ -488,21 +513,13 @@ public sealed class MainWindow : Window
     /// <summary>Help ▸ About Tessera (test seam).</summary>
     internal MenuItem AboutMenuItem { get; private set; } = null!;
 
-    private readonly List<MenuItem> _detailItems = new();
+    /// <summary>View ▸ Show free space (test seam).</summary>
+    internal MenuItem FreeSpaceMenuItem { get; private set; } = null!;
 
-    /// <summary>The detail menu items, in preset order (test seam).</summary>
-    internal IReadOnlyList<MenuItem> DetailMenuItems => _detailItems;
+    private readonly List<MenuItem> _colorItems = new();
 
-    internal string DetailNoteText => _detailNote.Text ?? "";
-
-    /// <summary>
-    /// A limit that quietly hid part of the disk would defeat the point of the app, so
-    /// say plainly that the view is incomplete and how to get the rest of it.
-    /// </summary>
-    private void OnLayoutTruncatedChanged(bool truncated) =>
-        _detailNote.Text = truncated
-            ? $"Showing the first {Format.Count(_treemap.Limits.MaxRects)} rectangles — raise View ▸ Detail for more."
-            : "";
+    /// <summary>The colour menu items, in choice order (test seam).</summary>
+    internal IReadOnlyList<MenuItem> ColorMenuItems => _colorItems;
 
     private ContextMenu BuildContextMenu()
     {

@@ -17,10 +17,12 @@ No installer, no account, no telemetry. One file, and it runs.
 ## Features
 
 - **Fast parallel scanning** — one worker per core over a shared directory queue; a full 1.1M-file `C:\` scan takes ~20 s cold / ~4 s warm. Live file/byte counters while scanning, cancellable at any time.
-- **Squarified treemap** (Bruls et al.) — rectangle area ∝ file size, colored by file extension, click to select, double-click to drill in, Up button and breadcrumb to navigate back. Rendering is cached to a bitmap, so hover/selection is instant even on dense views.
+- **Squarified treemap** (Bruls et al.) — rectangle area ∝ file size, coloured by nesting depth or by file extension, click to select, double-click to drill in, Up button and breadcrumb to navigate back. Rendering is cached to a bitmap, so hover/selection is instant even on dense views.
 - **Size-sorted tree** with size and %-of-parent columns (virtualized `TreeDataGrid`, handles 10k-child folders smoothly).
 - **Context menu** — open in Explorer, copy path, delete to Recycle Bin, rescan a single subtree (sizes re-propagate to the root without a full rescan), top-100 files under a folder.
-- **Detail limits** — **View ▸ Detail** picks Low / Medium / High / Full, trading rectangles for responsiveness. **Full is the default**: every rectangle big enough to see, up to 500,000 of them, so a whole drive fits in one view. Lower it if you prefer a coarser picture. When a limit does hide part of the view the status bar says so, so the treemap never quietly under-reports.
+- **No detail settings** — everything large enough to see is drawn, always. There is no cap and nothing is grouped away, so the picture is never quietly incomplete; the only cutoff is a rectangle too small to put a pixel in. Detail past that is reached by drilling into a folder, which lays it out again in the whole pane.
+- **Colour by depth or by file type** — **View ▸ Colour**. Depth is the default: the hue tells you how deeply nested a box is, so the folder structure reads at a glance. Switch to file type to colour by extension instead, when what you want is to spot one kind of file across the drive.
+- **Free space** — **View ▸ Show free space** gives unused space its own block, so the picture is the whole drive rather than only the full part of it.
 - **Top 100 largest files** — flat list for quick wins, double-click to reveal in Explorer.
 - **Safe by construction** — junctions/symlinks are shown but never followed (no cycles, no double-counting); access-denied folders are flagged and counted, never fatal.
 - **Headless CLI mode** — `Tessera.exe --scan <path>` prints totals without opening a window.
@@ -91,7 +93,7 @@ dotnet test
 |---|---|
 | Unit (`Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
 | Integration (`Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
-| Headless UI (`Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, that a truncation notice raised mid-render does not kill the renderer, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process |
+| Headless UI (`Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, colour modes and the free-space block, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process |
 
 The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
 
@@ -103,7 +105,7 @@ Models/FsNode.cs         lean scan-tree node (~70 B + name per entry; millions o
 Models/FsTreeOps.cs      UI-free tree mutations: delete splice, rescan splice, top-K
 Scanning/Scanner.cs      parallel enumerator-based scanner + aggregate/sort post-pass
 Scanning/ScanProgress.cs lock-free counters, polled by the UI on a timer
-UI/Squarify.cs           pure squarified-treemap layout algorithm + TreemapLimits presets
+UI/Squarify.cs           pure squarified-treemap layout algorithm + its geometric cutoffs
 UI/TreemapControl.cs     custom control: cached layout + cached scene bitmap, hit-testing
 UI/MainWindow.cs         toolbar, TreeDataGrid, treemap, selection-sync mediator
 UI/TopFilesWindow.cs     top-100 largest files list
@@ -122,8 +124,9 @@ Design notes:
 - `Avalonia.Controls.TreeDataGrid` is pinned to **11.1.1** simply because that is the version this was built and tested against. It is **MIT at every version** — the licence text lives in `licence.md` in the upstream repo; the NuGet packages just carry no licence metadata, which is why automated scanners report it as "unknown". The upstream repo is **archived**, so treat it as a frozen dependency.
 - **Nothing fails silently.** The UI runs on `async void` event handlers, where a throw is unhandled by definition, so every menu and toolbar action goes through `MainWindow.Guarded` and lands in the status bar. `Dispatcher.UIThread.UnhandledException` catches whatever slips past and keeps the window alive. Nothing is written to disk — the app reports and carries on.
 - The scanner's workers share a pending-directory counter, and a worker that fails without decrementing it strands the rest in a spin loop. The decrement lives in a `finally` for that reason; `Scanner.OnDirectoryEnter` exists so the case stays regression-tested.
-- Detail limits are **session-only** by design — the app writes nothing outside its own folder. `TreemapLimits.Full` is the default: `MinSide` 1 means the layout recurses into anything at least 3px across (the gate adds 2 to offset the per-level `Deflate(1)`), which is as far as a screen can go — below that a rectangle has no pixel to occupy. `TreemapLimits.Medium` keeps the cutoffs the layout used before the limits existed, as the baseline the presets are measured against.
-- Because Full is the default, hover cost must not scale with the rectangle count. `TreemapControl` indexes each layout twice: a `Dictionary<FsNode, int>` for the two per-frame outline lookups, and a 32px bucket grid (flat CSR arrays, not a list per cell) for hit-testing. `HitTestLinear` is kept as the definition of correct, and a test asserts the grid agrees with it point for point.
+- The layout has no rectangle budget, only geometry. `Squarify.MinSide` is 1 and is gated as `MinSide + 2` to offset the per-level `Deflate(1)`, so the descent stops at 3px — the narrowest rectangle that still leaves an inner pixel to draw. Below that there is nothing to show, which is why no cap is needed: the screen is the limit. `MaxDepth` is a sanity bound against pathological nesting, not a detail setting.
+- Colour mode and the free-space toggle are **session-only** by design — the app writes nothing outside its own folder.
+- Because a drive lays out several hundred thousand rectangles, hover cost must not scale with their number. `TreemapControl` indexes each layout twice: a `Dictionary<FsNode, int>` for the two per-frame outline lookups, and a 32px bucket grid (flat CSR arrays, not a list per cell) for hit-testing. `HitTestLinear` is kept as the definition of correct, and a test asserts the grid agrees with it point for point.
 
 ## Licence
 

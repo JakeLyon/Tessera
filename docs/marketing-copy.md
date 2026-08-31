@@ -44,7 +44,8 @@ guessing. Tessera does it in one pass.
 Tessera draws your disk as a **treemap**: every file is a rectangle, and the
 rectangle's area is proportional to its size. Big files are big shapes. You don't
 have to read anything to find them — they're simply the largest things on screen,
-colour-coded by file type.
+colour-coded by how deeply they are nested, so the shape of your disk reads at a
+glance — or by file type, if that is what you are hunting for.
 
 A conventional size-sorted folder tree sits alongside it, and the two stay in sync
 both ways. Click a block in the map, the tree jumps to it. Select a folder in the
@@ -89,13 +90,14 @@ proper exit codes for automation.
 
 ## Feature bullets (for a features grid)
 
-- **Squarified treemap** — file size becomes rectangle area, coloured by type
+- **Squarified treemap** — file size becomes rectangle area, coloured by nesting depth or by type
+- **Free space** — show unused space as a block, so the picture is the whole drive
 - **Two-way sync** — treemap and folder tree always agree
 - **Parallel scanner** — one worker per core; ~20 s for 1.1M files
 - **Recycle Bin delete** — confirmed with full path and size, always recoverable
 - **Single-folder rescan** — no full re-scan after a clear-out
 - **Top 100 largest files** — the quick wins, in one list
-- **Adjustable detail** — trade rectangle count for responsiveness on huge drives
+- **Nothing hidden** — every file big enough to see is drawn, with no detail settings to tune
 - **Headless CLI** — `--scan` for scripting, with real exit codes
 - **Portable** — one file, no installer, no runtime, no telemetry
 

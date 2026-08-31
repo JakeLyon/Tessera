@@ -172,4 +172,88 @@ public class TreemapControlTests
         Assert.Null(map.SelectedNode);
         Assert.Same(docs, map.RootNode);
     }
+
+    // ---- Colour mode ----
+
+    [AvaloniaFact]
+    public void ColorMode_DefaultsToDepth()
+    {
+        var (_, map) = Host(SampleTree());
+        Assert.Equal(TreemapColorMode.Depth, map.ColorMode);
+    }
+
+    /// <summary>
+    /// Colour is a painting concern, not a geometric one, so changing it must not throw
+    /// the layout away — on a drive-sized tree that would be a needless re-layout of
+    /// several hundred thousand rectangles just to recolour them.
+    /// </summary>
+    [AvaloniaFact]
+    public void ColorMode_ChangeRepaintsWithoutRelayingOut()
+    {
+        var (_, map) = Host(SampleTree());
+        var before = map.EnsureLayout();
+
+        map.ColorMode = TreemapColorMode.Extension;
+
+        Assert.Same(before, map.EnsureLayout());   // same instance: no recompute happened
+    }
+
+    // ---- Free space ----
+
+    [AvaloniaFact]
+    public void FreeSpace_OffByDefault_AndIgnoredWithoutAByteCount()
+    {
+        var (_, map) = Host(SampleTree());
+        Assert.False(map.ShowFreeSpace);
+        Assert.Equal(default, map.FreeSpaceRect);
+
+        map.ShowFreeSpace = true;      // no FreeSpaceBytes set
+        map.EnsureLayout();
+
+        Assert.Equal(default, map.FreeSpaceRect);
+    }
+
+    /// <summary>
+    /// Used and free must between them fill the pane, each keeping its true share, or the
+    /// picture would misreport the drive it claims to show.
+    /// </summary>
+    [AvaloniaFact]
+    public void FreeSpace_SplitsThePaneInProportion_AndTheTreeKeepsTheRest()
+    {
+        var root = SampleTree();
+        var (_, map) = Host(root);
+        map.FreeSpaceBytes = root.Size;      // half used, half free
+        map.ShowFreeSpace = true;
+
+        var layout = map.EnsureLayout();
+        var free = map.FreeSpaceRect;
+
+        Assert.True(free.Width > 0 && free.Height > 0);
+        double freeArea = free.Width * free.Height;
+        double treeArea = layout.Where(t => t.Depth == 0).Sum(t => t.Bounds.Width * t.Bounds.Height);
+        Assert.Equal(1.0, freeArea / treeArea, precision: 1);
+
+        // The block is not a node, so nothing in it can be hit, selected or deleted.
+        Assert.Null(map.HitTest(free.Center));
+        Assert.DoesNotContain(layout, t => free.Contains(t.Bounds.Center));
+    }
+
+    [AvaloniaFact]
+    public void FreeSpace_TogglingOff_GivesThePaneBackToTheTree()
+    {
+        var root = SampleTree();
+        var (_, map) = Host(root);
+        map.FreeSpaceBytes = root.Size;
+        map.ShowFreeSpace = true;
+        double withFree = map.EnsureLayout().Where(t => t.Depth == 0)
+            .Sum(t => t.Bounds.Width * t.Bounds.Height);
+
+        map.ShowFreeSpace = false;
+        double withoutFree = map.EnsureLayout().Where(t => t.Depth == 0)
+            .Sum(t => t.Bounds.Width * t.Bounds.Height);
+
+        Assert.Equal(default, map.FreeSpaceRect);
+        Assert.True(withoutFree > withFree,
+            $"tree had {withFree} with free space shown, {withoutFree} without");
+    }
 }

@@ -172,26 +172,60 @@ public class SquarifyTests
     // ---- Recursion cutoffs ----
 
     [Fact]
-    public void Layout_MaxDepth_StopsAt24()
+    public void Layout_StopsAtMaxDepth_AndMarksTheCutoffNodeAsALeaf()
     {
-        // 30-deep chain of dirs, file at the bottom.
-        FsNode leaf = TestTree.File("leaf", 1_000_000);
-        FsNode node = leaf;
-        for (int i = 0; i < 30; i++)
+        // Deeper than the depth bound, so the bound is what stops it rather than geometry.
+        FsNode node = TestTree.File("leaf", 1_000_000);
+        for (int i = 0; i < Squarify.MaxDepth + 20; i++)
             node = TestTree.Dir($"d{i}", node);
         var root = TestTree.Seal(node);
 
-        var rects = Layout(root, 2000, 2000);
+        var rects = Layout(root, 4000, 4000);
         Assert.NotEmpty(rects);
-        Assert.All(rects, t => Assert.True(t.Depth <= 24));
+        Assert.All(rects, t => Assert.True(t.Depth <= Squarify.MaxDepth,
+            $"depth {t.Depth} exceeds the bound of {Squarify.MaxDepth}"));
         var deepest = rects.OrderByDescending(t => t.Depth).First();
-        Assert.True(deepest.IsLeaf, "the cutoff node must be marked IsLeaf");
+        Assert.True(deepest.IsLeaf, "the cutoff node must be marked IsLeaf so it paints as a block");
+    }
+
+    /// <summary>
+    /// Nothing is dropped for want of budget any more, so a wide directory emits one
+    /// rectangle per child however many there are — the only thing that stops the layout
+    /// is a rectangle too small to draw into.
+    /// </summary>
+    [Fact]
+    public void Layout_WideDirectory_EmitsEveryChild_WithNoCap()
+    {
+        var wide = TestTree.Seal(TestTree.Dir("root",
+            Enumerable.Range(0, 50_000).Select(i => TestTree.File($"f{i}", 1_000)).ToArray()));
+
+        var rects = Layout(wide, 4000, 4000);
+
+        Assert.Equal(50_000, rects.Count);
+    }
+
+    /// <summary>
+    /// Every level that is drawn stays complete: a rectangle the layout descended into
+    /// must have at least one child rectangle present, or the picture would have holes in
+    /// it. Ported from the deleted rectangle-cap tests, where it guarded the same thing.
+    /// </summary>
+    [Fact]
+    public void Layout_DrawnLevelsHaveNoHoles()
+    {
+        FsNode node = TestTree.File("leaf", 1_000_000);
+        for (int i = 0; i < 6; i++)
+            node = TestTree.Dir($"d{i}", node, TestTree.File($"sib{i}", 500_000));
+        var rects = Layout(TestTree.Seal(node), 1200, 900);
+
+        foreach (var rect in rects.Where(t => !t.IsLeaf))
+            Assert.Contains(rects, other => ReferenceEquals(other.Node.Parent, rect.Node));
     }
 
     [Fact]
     public void Layout_TinyDirRect_NotRecursedInto()
     {
-        // One dominant file forces the dir into a sliver below MinSide.
+        // One dominant file forces the dir into a sliver below Squarify.MinSide, which is
+        // the only thing that stops the descent now that there is no rectangle budget.
         var dir = TestTree.Seal(TestTree.Dir("root",
             TestTree.File("huge", 1_000_000),
             TestTree.Dir("tiny", TestTree.File("inner", 10))));
