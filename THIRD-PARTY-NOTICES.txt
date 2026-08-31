@@ -6,8 +6,7 @@ the licence stated, and the full text of each distinct licence appears at the en
 of this file.
 
 This notice is distributed with Tessera in order to satisfy the attribution
-requirements of those licences. It does not grant any rights in Tessera itself;
-see LICENSE for those terms.
+requirements of those licences. It does not grant any rights in Tessera itself.
 
 --------------------------------------------------------------------------------
 MANAGED COMPONENTS

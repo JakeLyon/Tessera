@@ -26,7 +26,7 @@ No installer, no account, no telemetry. One file, and it runs.
 - **Top 100 largest files** — flat list for quick wins, double-click to reveal in Explorer.
 - **Safe by construction** — junctions/symlinks are shown but never followed (no cycles, no double-counting); access-denied folders are flagged and counted, never fatal.
 - **Headless CLI mode** — `Tessera.exe --scan <path>` prints totals without opening a window.
-- **Help ▸ About** — version (with the build's git revision), the licence, and the full third-party notices, all embedded in the exe so they travel with it.
+- **Help ▸ About** — version (with the build's git revision) and the full third-party notices, embedded in the exe so they travel with it.
 
 ## Requirements
 
@@ -93,7 +93,7 @@ dotnet test
 |---|---|
 | Unit (`tests/Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and the context-menu state matrix. Nothing here touches the disk or needs an application. |
 | Integration (`tests/Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes), free-space lookup, and the ShellOps paths that start a real process |
-| Headless UI (`tests/Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, Top-100 window, colour modes and the free-space block, the delete and rescan flows across their async boundaries, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process. Only tests that genuinely need a window live here. |
+| Headless UI (`tests/Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, Top-100 window, colour modes and the free-space block, the delete and rescan flows across their async boundaries, that a big layout renders repeatedly without killing the render pass, that the About window's embedded third-party notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process. Only tests that genuinely need a window live here. |
 
 The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves through one shared `TempDir`, which lifts deny-ACEs, removes junctions before any recursive walk, clears attributes and retries once. Recycle-bin deletion is intentionally left to manual testing.
 
@@ -119,7 +119,7 @@ src/Tessera/                       the application
   UI/TopFilesWindow.cs             top-100 largest files list
   UI/ConfirmDialog.cs              hand-rolled modal confirm/message window
   UI/DeleteRequest.cs              what a delete confirmation is being asked about
-  UI/AboutWindow.cs                version, licence and third-party notices, from embedded resources
+  UI/AboutWindow.cs                version and third-party notices, from an embedded resource
   UI/CrashHandler.cs               turns an unexpected exception into something readable
   Util/Format.cs                   byte/percent formatting
   Util/ShellOps.cs                 SHFileOperationW recycle-bin delete, Explorer reveal
@@ -127,7 +127,7 @@ src/Tessera/                       the application
   Util/DiskSpace.cs                free bytes on a drive, for the free-space block
 tests/Tessera.Tests/               unit, integration and headless-UI layers
 docs/                              icon, screenshot, marketing copy
-LICENSE, THIRD-PARTY-NOTICES.txt   shipped beside the exe and embedded in it
+THIRD-PARTY-NOTICES.txt            shipped beside the exe and embedded in it
 ```
 
 Design notes:
@@ -142,12 +142,10 @@ Design notes:
 - Colour mode and the free-space toggle are **session-only** by design — the app writes nothing outside its own folder.
 - Because a drive lays out several hundred thousand rectangles, hover cost must not scale with their number. `TreemapControl` indexes each layout twice: a `Dictionary<FsNode, int>` for the two per-frame outline lookups, and a 32px bucket grid (flat CSR arrays, not a list per cell) for hit-testing. `HitTestLinear` is kept as the definition of correct, and a test asserts the grid agrees with it point for point.
 
-## Licence
-
-Tessera is proprietary; see [LICENSE](LICENSE) for terms.
+## Third-party licences
 
 Every third-party dependency is MIT-licensed bar two — the ANGLE natives are BSD-3-Clause and the embedded Inter typeface is under the SIL Open Font Licence — and all three licences require their notices to travel with any distributed copy. [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) carries them.
 
-A single self-contained exe gets moved on its own, away from whatever was sitting beside it, so the notices are **embedded in the binary** as well as copied into the output folder. **Help ▸ About** reads them straight out of the assembly and never touches the filesystem, which is what makes a bare `Tessera.exe` a compliant distribution in its own right. Headless tests assert both resources are present and name every bundled component, so dropping them breaks the build rather than a shipped download.
+A single self-contained exe gets moved on its own, away from whatever was sitting beside it, so the notices are **embedded in the binary** as well as copied into the output folder. **Help ▸ About** reads them straight out of the assembly and never touches the filesystem, which is what makes a bare `Tessera.exe` a compliant distribution in its own right. Headless tests assert the resource is present and names every bundled component, so dropping it breaks the build rather than a shipped download.
 
 One case is worth knowing about beyond that: the TreeDataGrid packages declare no licence metadata at all, so automated scanners report them as unknown — the grant is MIT, from `licence.md` in the upstream repo.

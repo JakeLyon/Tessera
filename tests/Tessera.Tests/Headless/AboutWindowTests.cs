@@ -8,9 +8,9 @@ namespace Tessera.Tests.Headless;
 
 /// <summary>
 /// These are licence-compliance tests as much as UI tests. A single-file exe handed to
-/// someone on its own carries no LICENSE or THIRD-PARTY-NOTICES.txt beside it, so this
-/// window is the only place those notices survive — if the embedded resources ever stop
-/// being embedded, that must fail here rather than in a distributed build.
+/// someone on its own carries no THIRD-PARTY-NOTICES.txt beside it, so this window is the
+/// only place those notices survive — if the embedded resource ever stops being embedded,
+/// that must fail here rather than in a distributed build.
 /// </summary>
 public class AboutWindowTests
 {
@@ -21,12 +21,8 @@ public class AboutWindowTests
     // =====================================================================
 
     [Fact]
-    public void BothLicenceResources_AreEmbeddedInTheAssembly()
-    {
-        var names = AppAssembly.GetManifestResourceNames();
-        Assert.Contains(AboutWindow.LicenceResourceName, names);
-        Assert.Contains(AboutWindow.NoticesResourceName, names);
-    }
+    public void TheNoticesResource_IsEmbeddedInTheAssembly()
+        => Assert.Contains(AboutWindow.NoticesResourceName, AppAssembly.GetManifestResourceNames());
 
     [AvaloniaFact]
     public void Notices_NameEveryLicenceTheBundledDependenciesAreUnder()
@@ -48,14 +44,6 @@ public class AboutWindowTests
     [InlineData("System.Reactive")]
     public void Notices_AttributeEveryBundledComponent(string component)
         => Assert.Contains(component, new AboutWindow().NoticesText);
-
-    [AvaloniaFact]
-    public void Licence_IsTheEula()
-    {
-        var text = new AboutWindow().LicenceText;
-        Assert.Contains("End User Licence Agreement", text);
-        Assert.Contains("DISCLAIMER OF WARRANTY", text);
-    }
 
     [Fact]
     public void MissingResource_ReportsItselfRatherThanThrowingOrComingBackEmpty()
@@ -94,7 +82,6 @@ public class AboutWindowTests
         var assembly = AppAssembly;
 
         Assert.Equal(assembly.GetCustomAttribute<AssemblyProductAttribute>()!.Product, window.ProductText);
-        Assert.Equal(assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()!.Copyright, window.CopyrightText);
         Assert.NotEmpty(window.DescriptionText);
 
         // Not a hardcoded "1.0.0": assert it tracks the assembly, so a version bump
@@ -111,18 +98,15 @@ public class AboutWindowTests
     // =====================================================================
 
     [AvaloniaFact]
-    public void Window_ShowsBothTextsInTabsAndCloses()
+    public void Window_ShowsTheNoticesAndCloses()
     {
         var window = new AboutWindow();
         window.Show();
 
         var root = Assert.IsType<DockPanel>(window.Content);
-        var tabs = Assert.Single(root.Children.OfType<TabControl>());
-        var texts = tabs.Items.Cast<TabItem>()
-            .Select(t => ((SelectableTextBlock)((ScrollViewer)t.Content!).Content!).Text)
-            .ToList();
+        var pane = Assert.Single(root.Children.OfType<ScrollViewer>());
 
-        Assert.Equal(new[] { window.LicenceText, window.NoticesText }, texts);
+        Assert.Equal(window.NoticesText, ((SelectableTextBlock)pane.Content!).Text);
 
         window.Close();
         Assert.False(window.IsVisible);

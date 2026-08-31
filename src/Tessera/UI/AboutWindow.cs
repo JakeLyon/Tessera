@@ -8,24 +8,20 @@ using Avalonia.Media;
 namespace Tessera.UI;
 
 /// <summary>
-/// Version, licence and third-party attribution, read out of the assembly rather than
-/// off disk. The bundled dependencies' licences require their notices to travel with any
+/// Version and third-party attribution, read out of the assembly rather than off disk.
+/// The bundled dependencies' licences require their notices to travel with any
 /// distributed copy, and Tessera ships as a single self-contained exe that a user may
-/// well move on its own, away from the LICENSE and THIRD-PARTY-NOTICES.txt files sitting
-/// beside it. This window is what keeps that copy compliant, so the texts are embedded
-/// (see the EmbeddedResource items in Tessera.csproj) and nothing here touches the
-/// filesystem.
+/// well move on its own, away from the THIRD-PARTY-NOTICES.txt file sitting beside it.
+/// This window is what keeps that copy compliant, so the text is embedded (see the
+/// EmbeddedResource item in Tessera.csproj) and nothing here touches the filesystem.
 /// </summary>
 internal sealed class AboutWindow : Window
 {
-    internal const string LicenceResourceName = "Tessera.LICENSE";
     internal const string NoticesResourceName = "Tessera.THIRD-PARTY-NOTICES.txt";
 
     internal string ProductText { get; }
     internal string DescriptionText { get; }
     internal string VersionText { get; }
-    internal string CopyrightText { get; }
-    internal string LicenceText { get; }
     internal string NoticesText { get; }
     internal Button CloseButton { get; }
 
@@ -35,11 +31,9 @@ internal sealed class AboutWindow : Window
 
         ProductText = Meta<AssemblyProductAttribute>(assembly, a => a.Product) ?? "Tessera";
         DescriptionText = Meta<AssemblyDescriptionAttribute>(assembly, a => a.Description) ?? "";
-        CopyrightText = Meta<AssemblyCopyrightAttribute>(assembly, a => a.Copyright) ?? "";
         VersionText = "Version " + FormatVersion(
             Meta<AssemblyInformationalVersionAttribute>(assembly, a => a.InformationalVersion),
             assembly.GetName().Version);
-        LicenceText = ReadEmbeddedText(assembly, LicenceResourceName);
         NoticesText = ReadEmbeddedText(assembly, NoticesResourceName);
 
         Title = $"About {ProductText}";
@@ -61,18 +55,10 @@ internal sealed class AboutWindow : Window
                 new TextBlock { Text = ProductText, FontSize = 20, FontWeight = FontWeight.SemiBold },
                 new TextBlock { Text = DescriptionText, TextWrapping = TextWrapping.Wrap, Opacity = 0.85 },
                 new SelectableTextBlock { Text = VersionText, Opacity = 0.7 },
-                new TextBlock { Text = CopyrightText, Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
             },
         };
 
-        var tabs = new TabControl
-        {
-            Items =
-            {
-                TextTab("Licence", LicenceText),
-                TextTab("Third-party notices", NoticesText),
-            },
-        };
+        var notices = NoticesPane(NoticesText);
 
         var buttons = new StackPanel
         {
@@ -91,30 +77,27 @@ internal sealed class AboutWindow : Window
         buttons.Margin = new Thickness(0, 12, 0, 0);
         root.Children.Add(buttons);
 
-        root.Children.Add(tabs);   // fills what is left
+        root.Children.Add(notices);   // fills what is left
         Content = root;
     }
 
     /// <summary>
-    /// A licence pane is only useful if you can copy a clause out of it, and both texts
-    /// are hard-wrapped at 80 columns upstream, so they are shown unwrapped in a
-    /// monospace face and scroll in both directions rather than being re-flowed.
+    /// The pane is only useful if you can copy a clause out of it, and the text is
+    /// hard-wrapped at 80 columns upstream, so it is shown unwrapped in a monospace face
+    /// and scrolls in both directions rather than being re-flowed. Nothing labels it:
+    /// the embedded file opens with its own banner heading.
     /// </summary>
-    private static TabItem TextTab(string header, string text) => new()
+    private static ScrollViewer NoticesPane(string text) => new()
     {
-        Header = header,
-        Content = new ScrollViewer
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        Padding = new Thickness(12, 8),
+        Content = new SelectableTextBlock
         {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(12, 8),
-            Content = new SelectableTextBlock
-            {
-                Text = text,
-                TextWrapping = TextWrapping.NoWrap,
-                FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New, monospace"),
-                FontSize = 12,
-            },
+            Text = text,
+            TextWrapping = TextWrapping.NoWrap,
+            FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New, monospace"),
+            FontSize = 12,
         },
     };
 
