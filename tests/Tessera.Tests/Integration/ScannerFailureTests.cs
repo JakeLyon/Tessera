@@ -12,6 +12,7 @@ namespace Tessera.Tests.Integration;
 /// </summary>
 public class ScannerFailureTests : IDisposable
 {
+    private readonly TempDir _temp = new("TesseraFail");
     private readonly string _root;
 
     // Sizes of the tree built below.
@@ -22,8 +23,7 @@ public class ScannerFailureTests : IDisposable
 
     public ScannerFailureTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), $"TesseraFail_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_root);
+        _root = _temp.Path;
         File.WriteAllBytes(Path.Combine(_root, "top.bin"), new byte[TopFileBytes]);
 
         string branch = Path.Combine(_root, "branch");
@@ -41,7 +41,7 @@ public class ScannerFailureTests : IDisposable
     {
         // The seam is static and other test classes scan in parallel: always clear it.
         Scanner.OnDirectoryEnter = null;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        _temp.Dispose();
     }
 
     /// <summary>

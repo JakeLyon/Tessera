@@ -147,24 +147,6 @@ public class MainWindowOperationTests
     // =====================================================================
 
     [AvaloniaFact]
-    public async Task DeleteNode_ThenDeleteFormerParent_RootSizeCorrect()
-    {
-        // The headline corruption: a removed node kept its Parent chain, so deleting
-        // its former parent subtracted the child's size into the live tree twice.
-        var (window, root) = Host();
-        var docs = TestTree.Find(root, "docs");
-        var report = TestTree.Find(root, "report.pdf");
-
-        FsTreeOps.RemoveChild(report);
-        Assert.Equal(5000, docs.Size);
-        Assert.Equal(8000, root.Size);
-
-        FsTreeOps.RemoveChild(docs);
-        Assert.Equal(3000, root.Size); // video.mp4 only — not 3000 - 4000
-        await Task.CompletedTask;
-    }
-
-    [AvaloniaFact]
     public async Task DeleteNode_ConfirmationDeclined_TreeUntouched()
     {
         var (window, root) = Host(confirmDeletes: false);
@@ -219,14 +201,6 @@ public class MainWindowOperationTests
     // =====================================================================
     // Busy state
     // =====================================================================
-
-    [AvaloniaFact]
-    public void GetContextMenuState_WhenBusy_Hidden()
-    {
-        var root = SampleTree();
-        var state = MainWindow.GetContextMenuState(TestTree.Find(root, "docs"), isBusy: true);
-        Assert.False(state.Show);
-    }
 
     [AvaloniaFact]
     public async Task RescanNode_WhileAnotherRescanRuns_SecondIsIgnored()

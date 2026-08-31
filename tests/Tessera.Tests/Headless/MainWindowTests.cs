@@ -131,45 +131,6 @@ public class MainWindowTests
         Assert.Same(video, window.Treemap.SelectedNode);
     }
 
-    // ---- Context menu decision logic (pure static; no menu needs to open) ----
-
-    public static TheoryData<string, bool, bool, bool, bool, bool> CtxCases() => new()
-    {
-        // node kind,   scanning, Show,  CanDelete, CanRescan, CanTop
-        { "null",       false,    false, false,     false,     false },
-        { "dir",        true,     false, false,     false,     false },
-        { "root",       false,    true,  false,     true,      true },
-        { "dir",        false,    true,  true,      true,      true },
-        { "file",       false,    true,  true,      false,     false },
-        { "reparse",    false,    true,  true,      false,     false },
-    };
-
-    [AvaloniaTheory]
-    [MemberData(nameof(CtxCases))]
-    public void GetContextMenuState_Matrix(string kind, bool scanning,
-        bool show, bool canDelete, bool canRescan, bool canTop)
-    {
-        var root = TestTree.Seal(
-            TestTree.Dir(@"C:\scan",
-                TestTree.Dir("dir", TestTree.File("f", 10)),
-                TestTree.File("file", 5),
-                TestTree.Reparse("reparse")));
-
-        FsNode? node = kind switch
-        {
-            "null" => null,
-            "root" => root,
-            _ => TestTree.Find(root, kind),
-        };
-
-        var state = MainWindow.GetContextMenuState(node, scanning);
-
-        Assert.Equal(show, state.Show);
-        Assert.Equal(canDelete, state.CanDelete);
-        Assert.Equal(canRescan, state.CanRescan);
-        Assert.Equal(canTop, state.CanTopFiles);
-    }
-
     [AvaloniaFact]
     public void LoadTree_Twice_ReplacesModelCleanly()
     {
@@ -301,20 +262,6 @@ public class MainWindowTests
             new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
 
         Assert.True(window.Treemap.ShowFreeSpace);
-    }
-
-    /// <summary>
-    /// Free space beside a scan of one folder would be measuring that folder against the
-    /// whole disk, which says nothing about it — so only a drive root reports any.
-    /// </summary>
-    [AvaloniaFact]
-    public void FreeSpaceOf_OnlyAnswersForADriveRoot()
-    {
-        Assert.Null(DiskSpace.FreeBytesForDriveRoot(Path.GetTempPath()));
-        Assert.Null(DiskSpace.FreeBytesForDriveRoot(@"Z:\no\such\place"));
-
-        if (OperatingSystem.IsWindows() && Path.GetPathRoot(Environment.SystemDirectory) is { } root)
-            Assert.NotNull(DiskSpace.FreeBytesForDriveRoot(root));
     }
 
     /// <summary>

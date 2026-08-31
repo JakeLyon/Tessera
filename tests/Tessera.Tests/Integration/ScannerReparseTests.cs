@@ -11,36 +11,17 @@ namespace Tessera.Tests.Integration;
 /// </summary>
 public sealed class ScannerReparseTests : IDisposable
 {
+    private readonly TempDir _temp = new();
     private readonly string _root;
 
     public ScannerReparseTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), $"TesseraTests_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_root);
+        _root = _temp.Path;
     }
 
-    public void Dispose()
-    {
-        // Junction entries must be removed non-recursively first — recursive delete
-        // refuses them. Walk manually so we never descend through a junction (the
-        // cycle test creates one pointing back up the tree).
-        var stack = new Stack<string>();
-        stack.Push(_root);
-        var junctions = new List<string>();
-        while (stack.Count > 0)
-        {
-            foreach (var sub in Directory.EnumerateDirectories(stack.Pop()))
-            {
-                if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0)
-                    junctions.Add(sub);
-                else
-                    stack.Push(sub);
-            }
-        }
-        foreach (var junction in junctions)
-            Directory.Delete(junction, recursive: false);
-        Directory.Delete(_root, recursive: true);
-    }
+    // Teardown is junction-aware: see TempDir, which walks them out non-recursively
+    // before deleting. The cycle test builds one pointing back up its own tree.
+    public void Dispose() => _temp.Dispose();
 
     private static void MakeJunction(string link, string target)
     {

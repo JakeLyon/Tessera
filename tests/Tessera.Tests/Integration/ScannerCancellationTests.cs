@@ -6,11 +6,12 @@ namespace Tessera.Tests.Integration;
 
 public sealed class ScannerCancellationTests : IDisposable
 {
+    private readonly TempDir _temp = new();
     private readonly string _root;
 
     public ScannerCancellationTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), $"TesseraTests_{Guid.NewGuid():N}");
+        _root = _temp.Path;
         // 30×30 = 900 dirs with a small file each — enough work to observe a mid-scan cancel.
         for (int i = 0; i < 30; i++)
         {
@@ -23,7 +24,7 @@ public sealed class ScannerCancellationTests : IDisposable
         }
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose() => _temp.Dispose();
 
     private static void AssertWellFormed(FsNode node)
     {

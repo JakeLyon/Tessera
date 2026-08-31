@@ -15,51 +15,15 @@ namespace Tessera.Tests.Integration;
 [SupportedOSPlatform("windows")]
 public sealed class ScannerAccessDeniedTests : IDisposable
 {
+    private readonly TempDir _temp = new();
     private readonly string _root;
-    private readonly List<string> _deniedDirs = new();
 
-    public ScannerAccessDeniedTests()
-    {
-        _root = Path.Combine(Path.GetTempPath(), $"TesseraTests_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_root);
-    }
+    public ScannerAccessDeniedTests() => _root = _temp.Path;
 
-    public void Dispose()
-    {
-        foreach (var dir in _deniedDirs)
-            RemoveDeny(dir);
-        Directory.Delete(_root, recursive: true);
-    }
+    // TempDir lifts every deny-ACE it handed out before deleting.
+    public void Dispose() => _temp.Dispose();
 
-    private string CreateDeniedDir(string name)
-    {
-        string path = Path.Combine(_root, name);
-        Directory.CreateDirectory(path);
-        File.WriteAllBytes(Path.Combine(path, "secret.bin"), new byte[777]);
-
-        var info = new DirectoryInfo(path);
-        var security = info.GetAccessControl();
-        security.AddAccessRule(new FileSystemAccessRule(
-            WindowsIdentity.GetCurrent().User!,
-            FileSystemRights.ListDirectory,
-            AccessControlType.Deny));
-        info.SetAccessControl(security);
-        _deniedDirs.Add(path);
-        return path;
-    }
-
-    private static void RemoveDeny(string path)
-    {
-        if (!Directory.Exists(path))
-            return;
-        var info = new DirectoryInfo(path);
-        var security = info.GetAccessControl();
-        security.RemoveAccessRule(new FileSystemAccessRule(
-            WindowsIdentity.GetCurrent().User!,
-            FileSystemRights.ListDirectory,
-            AccessControlType.Deny));
-        info.SetAccessControl(security);
-    }
+    private string CreateDeniedDir(string name) => _temp.CreateDeniedDir(name);
 
     private (FsNode Root, ScanProgress Progress) Scan()
     {
