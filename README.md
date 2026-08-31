@@ -91,11 +91,11 @@ dotnet test
 
 | Layer | What it covers |
 |---|---|
-| Unit (`tests/Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
-| Integration (`tests/Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
-| Headless UI (`tests/Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, colour modes and the free-space block, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process |
+| Unit (`tests/Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and the context-menu state matrix. Nothing here touches the disk or needs an application. |
+| Integration (`tests/Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes), free-space lookup, and the ShellOps paths that start a real process |
+| Headless UI (`tests/Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, Top-100 window, colour modes and the free-space block, the delete and rescan flows across their async boundaries, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process. Only tests that genuinely need a window live here. |
 
-The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
+The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves through one shared `TempDir`, which lifts deny-ACEs, removes junctions before any recursive walk, clears attributes and retries once. Recycle-bin deletion is intentionally left to manual testing.
 
 ## Architecture
 
@@ -111,7 +111,11 @@ src/Tessera/                       the application
   Treemap/TmRect.cs                one laid-out rectangle
   Treemap/TreemapColorMode.cs      colour by nesting depth or by file extension
   UI/TreemapControl.cs             custom control: cached layout + cached scene bitmap, hit-testing
-  UI/MainWindow.cs                 toolbar, TreeDataGrid, treemap, selection-sync mediator
+  UI/MainWindow.cs                 fields, seams, the error funnel, and the window's construction
+  UI/MainWindow.Scanning.cs        drive list, folder picking, the scan lifecycle
+  UI/MainWindow.Selection.cs       tree source, two-way selection sync, drill/up navigation
+  UI/MainWindow.Menus.cs           menu bar and context menu
+  UI/MainWindow.Operations.cs      delete, rescan, and the refresh after a mutation
   UI/TopFilesWindow.cs             top-100 largest files list
   UI/ConfirmDialog.cs              hand-rolled modal confirm/message window
   UI/DeleteRequest.cs              what a delete confirmation is being asked about
