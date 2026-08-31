@@ -12,7 +12,7 @@ using Tessera.Util;
 
 namespace Tessera.UI;
 
-public sealed class MainWindow : Window
+internal sealed class MainWindow : Window
 {
     private readonly ComboBox _driveCombo;
     private readonly Button _scanButton;
@@ -195,8 +195,6 @@ public sealed class MainWindow : Window
 
     /// <summary>Completes once the drive list has been populated (test seam).</summary>
     internal Task DrivesLoaded { get; }
-
-    internal int DriveCount => (_driveCombo.ItemsSource as string[])?.Length ?? 0;
 
     /// <summary>
     /// Enumerate drives off the UI thread: DriveInfo.IsReady blocks (and can throw)
@@ -438,10 +436,6 @@ public sealed class MainWindow : Window
         _crumb.Text = _treemap.RootNode?.GetFullPath() ?? "";
         _upButton.IsEnabled = _treemap.RootNode?.Parent is not null;
     }
-
-    // =====================================================================
-    // Context menu / node operations
-    // =====================================================================
 
     // =====================================================================
     // Menu bar
@@ -731,8 +725,11 @@ public sealed class MainWindow : Window
     private void RefreshAfterMutation(FsNode focus)
     {
         if (_scanRoot is null) return;
-        // Also resort the mutated node's own children container's parent — cheap safety net.
+        // A full rebuild rather than a targeted refresh: a mutation re-sorts sibling
+        // arrays all the way to the root, so every row's position may have moved.
         SetTreeSource(_scanRoot);
+        // Restoring selection would otherwise bounce back through the tree's
+        // SelectionChanged handler and fight the treemap for the same node.
         _syncing = true;
         try
         {

@@ -1,6 +1,6 @@
 namespace Tessera.Util;
 
-public static class Format
+internal static class Format
 {
     private static readonly string[] s_units = ["B", "KB", "MB", "GB", "TB", "PB"];
 

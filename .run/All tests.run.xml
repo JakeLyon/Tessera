@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="All tests" type="ShConfigurationType">
-    <!-- The full 244-test suite (unit, integration, headless UI), the same command
+    <!-- The full suite (unit, integration, headless UI), the same command
          CI runs. Rider's own Unit Tests window is better for iterating on a single
          test; this is here to reproduce the CI result exactly. -->
     <option name="SCRIPT_TEXT" value="dotnet test Tessera.slnx --configuration Release" />

@@ -7,7 +7,7 @@ namespace Tessera.Models;
 /// produce millions of these. Full paths are never stored; they are rebuilt on
 /// demand by walking <see cref="Parent"/> (the root node's Name holds the absolute path).
 /// </summary>
-public sealed class FsNode
+internal sealed class FsNode
 {
     public const byte FlagDir = 1;
     public const byte FlagReparse = 2;

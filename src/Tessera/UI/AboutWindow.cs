@@ -16,7 +16,7 @@ namespace Tessera.UI;
 /// (see the EmbeddedResource items in Tessera.csproj) and nothing here touches the
 /// filesystem.
 /// </summary>
-public sealed class AboutWindow : Window
+internal sealed class AboutWindow : Window
 {
     internal const string LicenceResourceName = "Tessera.LICENSE";
     internal const string NoticesResourceName = "Tessera.THIRD-PARTY-NOTICES.txt";

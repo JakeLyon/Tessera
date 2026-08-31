@@ -4,7 +4,7 @@ namespace Tessera.Scanning;
 /// Lock-free scan counters. Workers bump these with Interlocked; the UI polls them
 /// on a timer — no per-file events.
 /// </summary>
-public sealed class ScanProgress
+internal sealed class ScanProgress
 {
     public long Files;
     public long Dirs;

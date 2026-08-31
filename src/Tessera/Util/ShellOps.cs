@@ -5,14 +5,14 @@ using System.Runtime.InteropServices;
 namespace Tessera.Util;
 
 /// <summary>Outcome of a shell operation. Failures are reported, never thrown.</summary>
-public readonly record struct ShellResult(bool Ok, string? Error)
+internal readonly record struct ShellResult(bool Ok, string? Error)
 {
     public static ShellResult Success => new(true, null);
     public static ShellResult Fail(string why) => new(false, why);
 }
 
 /// <summary>OS shell integration: recycle-bin delete, reveal in file manager.</summary>
-public static class ShellOps
+internal static class ShellOps
 {
     // ---- Windows: SHFileOperationW ----
 

@@ -15,7 +15,7 @@ namespace Tessera.UI;
 /// parent-first) is cached and only recomputed when the root node, the data, or the
 /// control size changes; hover/selection changes just repaint from the cache.
 /// </summary>
-public sealed class TreemapControl : Control
+internal sealed class TreemapControl : Control
 {
     private readonly List<TmRect> _layout = new();
     private bool _layoutDirty = true;

@@ -11,7 +11,7 @@ namespace Tessera.Scanning;
 /// no extra stat calls). Reparse points (junctions/symlinks) become zero-size leaves
 /// and are never descended into, so cycles and double-counting are impossible.
 /// </summary>
-public static class Scanner
+internal static class Scanner
 {
     private readonly record struct Entry(string Name, long Length, bool IsDir, bool IsReparse);
 

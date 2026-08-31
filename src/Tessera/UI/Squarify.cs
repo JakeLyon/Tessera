@@ -4,10 +4,10 @@ using Tessera.Models;
 namespace Tessera.UI;
 
 /// <summary>One laid-out treemap rectangle.</summary>
-public readonly record struct TmRect(FsNode Node, Rect Bounds, int Depth, bool IsLeaf);
+internal readonly record struct TmRect(FsNode Node, Rect Bounds, int Depth, bool IsLeaf);
 
 /// <summary>What a rectangle's fill colour tells you.</summary>
-public enum TreemapColorMode
+internal enum TreemapColorMode
 {
     /// <summary>How deeply the item is nested, as SpaceMonger does it. The default.</summary>
     Depth,
@@ -21,7 +21,7 @@ public enum TreemapColorMode
 /// Rectangles are appended parent-first, so painting in list order layers children
 /// over parents and a backwards scan hit-tests deepest-first.
 /// </summary>
-public static class Squarify
+internal static class Squarify
 {
     /// <summary>
     /// Don't recurse into a rectangle narrower or shorter than this. Gated below as

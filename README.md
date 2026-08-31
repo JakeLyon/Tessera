@@ -83,7 +83,7 @@ Add `--self-contained true` instead for machines without the runtime (~90 MB). `
 
 ## Tests
 
-267 tests in three layers, all runnable without elevation:
+Three layers, all runnable without elevation:
 
 ```powershell
 dotnet test

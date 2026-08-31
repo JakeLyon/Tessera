@@ -6,7 +6,7 @@ using Tessera.UI;
 
 namespace Tessera;
 
-public class App : Application
+internal class App : Application
 {
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 

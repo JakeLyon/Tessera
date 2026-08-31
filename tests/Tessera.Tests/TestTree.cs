@@ -8,18 +8,18 @@ namespace Tessera.Tests;
 /// and every Children array sorted size-descending. Squarify and the tree-mutation
 /// helpers REQUIRE these invariants, so all synthetic trees must go through Seal.
 /// </summary>
-public static class TestTree
+internal static class TestTree
 {
-    public static FsNode File(string name, long size) => new(name) { Size = size };
+    internal static FsNode File(string name, long size) => new(name) { Size = size };
 
-    public static FsNode Dir(string name, params FsNode[] children) =>
+    internal static FsNode Dir(string name, params FsNode[] children) =>
         new(name, FsNode.FlagDir) { Children = children };
 
-    public static FsNode Reparse(string name) =>
+    internal static FsNode Reparse(string name) =>
         new(name, FsNode.FlagDir | FsNode.FlagReparse);
 
     /// <summary>Set Parent links, aggregate dir sizes bottom-up, sort children size-desc.</summary>
-    public static FsNode Seal(FsNode root)
+    internal static FsNode Seal(FsNode root)
     {
         SealNode(root);
         return root;
@@ -42,7 +42,7 @@ public static class TestTree
     }
 
     /// <summary>All file (leaf, non-dir) nodes in the subtree.</summary>
-    public static IEnumerable<FsNode> Files(FsNode root)
+    internal static IEnumerable<FsNode> Files(FsNode root)
     {
         var stack = new Stack<FsNode>();
         stack.Push(root);
@@ -58,7 +58,7 @@ public static class TestTree
     }
 
     /// <summary>Find a node by name anywhere in the subtree (names must be unique in test trees).</summary>
-    public static FsNode Find(FsNode root, string name)
+    internal static FsNode Find(FsNode root, string name)
     {
         var stack = new Stack<FsNode>();
         stack.Push(root);

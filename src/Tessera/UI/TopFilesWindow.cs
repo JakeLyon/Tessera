@@ -6,7 +6,7 @@ using Tessera.Util;
 namespace Tessera.UI;
 
 /// <summary>Flat list of the 100 largest files under a given directory node.</summary>
-public sealed class TopFilesWindow : Window
+internal sealed class TopFilesWindow : Window
 {
     private const int TopCount = 100;
 

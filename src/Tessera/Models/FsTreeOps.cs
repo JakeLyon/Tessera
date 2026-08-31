@@ -6,7 +6,7 @@ namespace Tessera.Models;
 /// directory sizes equal the sum of their descendants, and every Children array
 /// stays sorted size-descending.
 /// </summary>
-public static class FsTreeOps
+internal static class FsTreeOps
 {
     private static readonly Comparison<FsNode> s_sizeDesc = (a, b) => b.Size.CompareTo(a.Size);
 
