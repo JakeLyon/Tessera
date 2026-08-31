@@ -102,5 +102,4 @@ jobs:
           name: Tessera-win-x64
           path: |
             publish/Tessera.exe
-            LICENSE
             THIRD-PARTY-NOTICES.txt
