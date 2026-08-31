@@ -26,16 +26,21 @@
     <_StampYear>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('yyyy'))</_StampYear>
     <_StampDate>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('MMdd'))</_StampDate>
     <_StampMinute>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('HHmm'))</_StampMinute>
-    <_StampSecond>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('HHmmss'))</_StampSecond>
 
-    <!-- Every field of the Win32 version resource is 16 bits, capped at 65534, so a
-         HHmmss component (up to 235959) does not fit. These carry HHmm instead. -->
+    <!-- HHmm rather than anything finer because every field of the Win32 version
+         resource is 16 bits, capped at 65534: an HHmmss component reaches 235959 and
+         does not fit. These are also numeric fields, so AssemblyVersion drops the
+         leading zero of MMdd (0831 parses as 831); FileVersion keeps it, and it is
+         FileVersion that Explorer's Properties dialog shows. -->
     <Version>1.$(_StampYear).$(_StampDate).$(_StampMinute)</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
-    <!-- A free-form string with no such limit, so this one keeps the full stamp to the
-         second. It is what Help > About shows, and the SDK appends "+<commit sha>". -->
-    <InformationalVersion>1.$(_StampYear).$(_StampDate).$(_StampSecond)</InformationalVersion>
+    <!-- The same stamp again rather than a finer one: this is the string Help > About
+         shows, and one version format everywhere is worth more than seconds of extra
+         precision. Being free-form, it is also the only field that keeps the leading
+         zero of MMdd, so it reads exactly 1.yyyy.MMdd.HHmm. The SDK appends
+         "+<commit sha>", which is what separates two builds made in the same minute. -->
+    <InformationalVersion>1.$(_StampYear).$(_StampDate).$(_StampMinute)</InformationalVersion>
     <Product>Tessera</Product>
     <AssemblyTitle>Tessera</AssemblyTitle>
     <Company>Jake Lyon</Company>
