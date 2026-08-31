@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <!-- A side-by-side identity, not a build number: it names the application to Windows
+       and is deliberately held still while the assembly version moves with every build.
+       Nothing surfaces it to the user - Explorer and SmartScreen read the Win32 version
+       resource, which carries the calendar stamp from Tessera.csproj. -->
   <assemblyIdentity version="1.0.0.0" name="Tessera.Desktop"/>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>

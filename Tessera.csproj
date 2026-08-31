@@ -15,9 +15,27 @@
   <!-- Shipping identity. These populate the Win32 version resource, which is what
        Explorer's Properties dialog and the SmartScreen prompt read. -->
   <PropertyGroup>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <!-- Calendar build stamp, 1.<year>.<MMdd>.<time>. Every build carries the moment it
+         was made, so a user can read the age of their copy straight off Help > About and
+         a bug report names one build rather than a range. Captured once, in UTC, and
+         every component below is parsed back out of that single string so they cannot
+         straddle a second or a midnight boundary mid-build.
+         Pass -p:BuildTimestampUtc="yyyy-MM-dd HH:mm:ss" to pin it; a release does exactly
+         that, so the published artifact matches the tag it was cut from. -->
+    <BuildTimestampUtc Condition="'$(BuildTimestampUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm:ss'))</BuildTimestampUtc>
+    <_StampYear>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('yyyy'))</_StampYear>
+    <_StampDate>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('MMdd'))</_StampDate>
+    <_StampMinute>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('HHmm'))</_StampMinute>
+    <_StampSecond>$([System.DateTime]::Parse('$(BuildTimestampUtc)').ToString('HHmmss'))</_StampSecond>
+
+    <!-- Every field of the Win32 version resource is 16 bits, capped at 65534, so a
+         HHmmss component (up to 235959) does not fit. These carry HHmm instead. -->
+    <Version>1.$(_StampYear).$(_StampDate).$(_StampMinute)</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
+    <!-- A free-form string with no such limit, so this one keeps the full stamp to the
+         second. It is what Help > About shows, and the SDK appends "+<commit sha>". -->
+    <InformationalVersion>1.$(_StampYear).$(_StampDate).$(_StampSecond)</InformationalVersion>
     <Product>Tessera</Product>
     <AssemblyTitle>Tessera</AssemblyTitle>
     <Company>Jake Lyon</Company>
