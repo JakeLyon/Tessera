@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Rendering;
 using Avalonia.Threading;
 using Tessera.Models;
+using Tessera.Treemap;
 using Tessera.Util;
 
 namespace Tessera.UI;

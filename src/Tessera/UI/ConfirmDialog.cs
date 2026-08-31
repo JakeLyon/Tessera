@@ -89,7 +89,7 @@ internal sealed class ConfirmDialog : Window
     internal void Confirm() => Close(true);
     internal void Cancel() => Close(false);
 
-    internal static ConfirmDialog CreateDelete(MainWindow.DeleteRequest request) => new(
+    internal static ConfirmDialog CreateDelete(DeleteRequest request) => new(
         title: "Delete to Recycle Bin",
         headline: $"Move “{request.Name}” to the Recycle Bin?",
         body: $"{request.FullPath}\n\n{Format.Bytes(request.Size)}",
@@ -100,7 +100,7 @@ internal sealed class ConfirmDialog : Window
         new(title, title, message, primaryText: "OK", secondaryText: null);
 
     /// <summary>Closing via the title bar yields default(bool) — i.e. "cancel" — by construction.</summary>
-    internal static Task<bool> ConfirmDeleteAsync(Window owner, MainWindow.DeleteRequest request)
+    internal static Task<bool> ConfirmDeleteAsync(Window owner, DeleteRequest request)
         => CreateDelete(request).ShowDialog<bool>(owner);
 
     internal static Task ShowMessageAsync(Window owner, string title, string message)

@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Tessera.Models;
 using Tessera.UI;
+using Tessera.Treemap;
 using Xunit;
 
 namespace Tessera.Tests.Headless;

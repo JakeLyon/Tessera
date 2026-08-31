@@ -4,6 +4,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Tessera.Models;
 using Tessera.UI;
+using Tessera.Util;
+using Tessera.Treemap;
 using Xunit;
 
 namespace Tessera.Tests.Headless;
@@ -308,11 +310,11 @@ public class MainWindowTests
     [AvaloniaFact]
     public void FreeSpaceOf_OnlyAnswersForADriveRoot()
     {
-        Assert.Null(MainWindow.FreeSpaceOf(Path.GetTempPath()));
-        Assert.Null(MainWindow.FreeSpaceOf(@"Z:\no\such\place"));
+        Assert.Null(DiskSpace.FreeBytesForDriveRoot(Path.GetTempPath()));
+        Assert.Null(DiskSpace.FreeBytesForDriveRoot(@"Z:\no\such\place"));
 
         if (OperatingSystem.IsWindows() && Path.GetPathRoot(Environment.SystemDirectory) is { } root)
-            Assert.NotNull(MainWindow.FreeSpaceOf(root));
+            Assert.NotNull(DiskSpace.FreeBytesForDriveRoot(root));
     }
 
     /// <summary>

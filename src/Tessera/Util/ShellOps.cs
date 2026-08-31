@@ -4,13 +4,6 @@ using System.Runtime.InteropServices;
 
 namespace Tessera.Util;
 
-/// <summary>Outcome of a shell operation. Failures are reported, never thrown.</summary>
-internal readonly record struct ShellResult(bool Ok, string? Error)
-{
-    public static ShellResult Success => new(true, null);
-    public static ShellResult Fail(string why) => new(false, why);
-}
-
 /// <summary>OS shell integration: recycle-bin delete, reveal in file manager.</summary>
 internal static class ShellOps
 {
@@ -36,6 +29,28 @@ internal static class ShellOps
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SHFileOperationW(ref SHFILEOPSTRUCTW op);
+
+    /// <summary>
+    /// <see cref="DeleteToRecycleBin"/> on a dedicated STA thread. SHFileOperationW shows
+    /// shell UI and must run in an STA apartment; a thread-pool thread is MTA, which is
+    /// what made the delete dialog non-modal. The requirement belongs to the P/Invoke, so
+    /// the thread that satisfies it lives here rather than in the calling window.
+    /// </summary>
+    internal static Task<ShellResult> DeleteToRecycleBinOnStaThreadAsync(string path)
+    {
+        var completion = new TaskCompletionSource<ShellResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try { completion.SetResult(DeleteToRecycleBin(path)); }
+            catch (Exception ex) { completion.SetResult(ShellResult.Fail(ex.Message)); }
+        })
+        { IsBackground = true, Name = "Tessera.Delete" };
+
+        if (OperatingSystem.IsWindows())
+            thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
+    }
 
     /// <summary>
     /// Move a file or directory to the Recycle Bin (Windows) or trash (elsewhere).

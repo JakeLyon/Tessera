@@ -1,6 +1,7 @@
 using Avalonia;
 using Tessera.Models;
 using Tessera.UI;
+using Tessera.Treemap;
 using Xunit;
 
 namespace Tessera.Tests.Unit;

@@ -107,15 +107,20 @@ src/Tessera/                       the application
   Models/FsTreeOps.cs              UI-free tree mutations: delete splice, rescan splice, top-K
   Scanning/Scanner.cs              parallel enumerator-based scanner + aggregate/sort post-pass
   Scanning/ScanProgress.cs         lock-free counters, polled by the UI on a timer
-  UI/Squarify.cs                   pure squarified-treemap layout algorithm + its geometric cutoffs
+  Treemap/Squarify.cs              pure squarified-treemap layout algorithm + its geometric cutoffs
+  Treemap/TmRect.cs                one laid-out rectangle
+  Treemap/TreemapColorMode.cs      colour by nesting depth or by file extension
   UI/TreemapControl.cs             custom control: cached layout + cached scene bitmap, hit-testing
   UI/MainWindow.cs                 toolbar, TreeDataGrid, treemap, selection-sync mediator
   UI/TopFilesWindow.cs             top-100 largest files list
   UI/ConfirmDialog.cs              hand-rolled modal confirm/message window
+  UI/DeleteRequest.cs              what a delete confirmation is being asked about
   UI/AboutWindow.cs                version, licence and third-party notices, from embedded resources
   UI/CrashHandler.cs               turns an unexpected exception into something readable
   Util/Format.cs                   byte/percent formatting
   Util/ShellOps.cs                 SHFileOperationW recycle-bin delete, Explorer reveal
+  Util/ShellResult.cs              the outcome of one shell operation
+  Util/DiskSpace.cs                free bytes on a drive, for the free-space block
 tests/Tessera.Tests/               unit, integration and headless-UI layers
 docs/                              icon, screenshot, marketing copy
 LICENSE, THIRD-PARTY-NOTICES.txt   shipped beside the exe and embedded in it

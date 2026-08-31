@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Tessera.Models;
 using Tessera.Scanning;
+using Tessera.Treemap;
 using Tessera.Util;
 
 namespace Tessera.UI;
@@ -41,8 +42,6 @@ internal sealed class MainWindow : Window
     /// <summary>True while any operation owns the tree — a scan, or a delete that
     /// is waiting on the shell (where <see cref="IsScanning"/> is false).</summary>
     private bool IsBusy => IsScanning || _mutating;
-
-    internal readonly record struct DeleteRequest(string Name, string FullPath, long Size);
 
     // Injection seams — tests replace these to run without disk or modal dialogs.
     internal Func<string, ScanProgress, CancellationToken, Task<FsNode>> ScanFunc = Scanner.ScanAsync;
@@ -266,7 +265,7 @@ internal sealed class MainWindow : Window
             LoadTree(root);
             // Recorded only on success, so "Rescan" never targets a path that failed.
             _lastPath = path;
-            _treemap.FreeSpaceBytes = FreeSpaceOf(path);
+            _treemap.FreeSpaceBytes = DiskSpace.FreeBytesForDriveRoot(path);
 
             _status.Text =
                 $"{(cancelled ? "Cancelled — partial results. " : "")}" +
@@ -288,29 +287,6 @@ internal sealed class MainWindow : Window
             _scanButton.Content = "Rescan";
             _scanButton.IsEnabled = _lastPath is not null;
             _topButton.IsEnabled = _scanRoot is not null;
-        }
-    }
-
-    /// <summary>
-    /// Free bytes on the drive, but only when the scan root IS that drive — free space
-    /// beside a scan of one folder would be comparing it against the whole disk, which
-    /// says nothing about the folder. Null means the treemap shows no free-space block.
-    /// DriveInfo throws on an unready or disconnected drive, so never let that fail a scan
-    /// that has already succeeded.
-    /// </summary>
-    internal static long? FreeSpaceOf(string path)
-    {
-        try
-        {
-            string full = Path.GetFullPath(path);
-            if (!string.Equals(full, Path.GetPathRoot(full), StringComparison.OrdinalIgnoreCase))
-                return null;
-            var drive = new DriveInfo(full);
-            return drive.IsReady ? drive.TotalFreeSpace : null;
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 
@@ -591,26 +567,6 @@ internal sealed class MainWindow : Window
             CanTopFiles: isDir);
     }
 
-    /// <summary>
-    /// SHFileOperationW shows shell UI and must run on an STA thread — a thread-pool
-    /// thread is MTA, which is what made the delete dialog non-modal.
-    /// </summary>
-    private static Task<ShellResult> DeleteOnStaThreadAsync(string path)
-    {
-        var completion = new TaskCompletionSource<ShellResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var thread = new Thread(() =>
-        {
-            try { completion.SetResult(ShellOps.DeleteToRecycleBin(path)); }
-            catch (Exception ex) { completion.SetResult(ShellResult.Fail(ex.Message)); }
-        })
-        { IsBackground = true, Name = "Tessera.Delete" };
-
-        if (OperatingSystem.IsWindows())
-            thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        return completion.Task;
-    }
-
     /// <summary>Disable the actions that would race a tree mutation.</summary>
     private void SetMutating(bool on)
     {
@@ -639,7 +595,7 @@ internal sealed class MainWindow : Window
         try
         {
             _status.Text = $"Deleting {node.Name}…";
-            var result = await DeleteOnStaThreadAsync(path);
+            var result = await ShellOps.DeleteToRecycleBinOnStaThreadAsync(path);
 
             if (generation != _treeGeneration)
             {

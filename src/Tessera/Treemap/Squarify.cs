@@ -1,20 +1,7 @@
 using Avalonia;
 using Tessera.Models;
 
-namespace Tessera.UI;
-
-/// <summary>One laid-out treemap rectangle.</summary>
-internal readonly record struct TmRect(FsNode Node, Rect Bounds, int Depth, bool IsLeaf);
-
-/// <summary>What a rectangle's fill colour tells you.</summary>
-internal enum TreemapColorMode
-{
-    /// <summary>How deeply the item is nested, as SpaceMonger does it. The default.</summary>
-    Depth,
-
-    /// <summary>The file's extension, so one kind of file is one colour across the drive.</summary>
-    Extension,
-}
+namespace Tessera.Treemap;
 
 /// <summary>
 /// Squarified treemap layout (Bruls, Huizing, van Wijk). Pure geometry — no UI state.

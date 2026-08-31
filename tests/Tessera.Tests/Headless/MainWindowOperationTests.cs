@@ -180,7 +180,7 @@ public class MainWindowOperationTests
     public async Task DeleteNode_ConfirmationRequest_CarriesNamePathAndSize()
     {
         var root = SampleTree();
-        MainWindow.DeleteRequest? seen = null;
+        DeleteRequest? seen = null;
         var window = new MainWindow
         {
             ConfirmDelete = req => { seen = req; return Task.FromResult(false); },

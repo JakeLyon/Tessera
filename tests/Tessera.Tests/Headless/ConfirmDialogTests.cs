@@ -7,7 +7,7 @@ namespace Tessera.Tests.Headless;
 
 public class ConfirmDialogTests
 {
-    private static MainWindow.DeleteRequest Request() =>
+    private static DeleteRequest Request() =>
         new("video.mp4", @"C:\scan\media\video.mp4", 3_221_225_472);
 
     [AvaloniaFact]
