@@ -1,0 +1,15 @@
+# Commits that only moved code, so `git blame` attributes lines to whoever last
+# actually changed them rather than to the move.
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub reads this file automatically; local git needs the config line above once.
+
+# refactor: move the app to src/ and the tests to tests/
+8e71e3198c38068f48a10069b4b498285011e159
+
+# refactor: move misplaced logic to where it belongs, one type per file
+4a04b5b204db9f59fe35dac03b5a3c2a42912f11
+
+# refactor: split MainWindow into five partial files
+6897eb16b143fd7de5d7a05c6b1acaaf6d8c0757

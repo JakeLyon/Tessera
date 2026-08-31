@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="Tessera.csproj" />
-  <Project Path="Tessera.Tests/Tessera.Tests.csproj" />
+  <Project Path="src/Tessera/Tessera.csproj" />
+  <Project Path="tests/Tessera.Tests/Tessera.Tests.csproj" />
 </Solution>

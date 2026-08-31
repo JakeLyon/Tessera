@@ -37,9 +37,9 @@ No installer, no account, no telemetry. One file, and it runs.
 
 ```powershell
 dotnet build -c Release
-dotnet run --project Tessera.csproj                      # open the UI
-dotnet run --project Tessera.csproj -- "D:\some\folder"  # open and scan immediately
-dotnet run --project Tessera.csproj -- --scan "C:\"      # headless: print totals and exit
+dotnet run --project src/Tessera/Tessera.csproj                      # open the UI
+dotnet run --project src/Tessera/Tessera.csproj -- "D:\some\folder"  # open and scan immediately
+dotnet run --project src/Tessera/Tessera.csproj -- --scan "C:\"      # headless: print totals and exit
 ```
 
 `--scan` exits `0` on success, `2` on a usage error (missing or blank path) and `3` when the scan itself fails. The UI exits `1` if it cannot start.
@@ -76,14 +76,14 @@ Framework-dependent single file (~27 MB, needs the .NET 10 runtime on the target
 ```powershell
 # Name the project explicitly — publishing the solution also picks up Tessera.Tests,
 # which cannot be single-file published (NETSDK1098).
-dotnet publish Tessera.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:DebugType=none
+dotnet publish src/Tessera/Tessera.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:DebugType=none
 ```
 
 Add `--self-contained true` instead for machines without the runtime (~90 MB). `PublishTrimmed` is not supported by Avalonia — don't enable it.
 
 ## Tests
 
-267 tests in three layers, all runnable without elevation:
+Three layers, all runnable without elevation:
 
 ```powershell
 dotnet test
@@ -91,29 +91,43 @@ dotnet test
 
 | Layer | What it covers |
 |---|---|
-| Unit (`Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and failure reporting |
-| Integration (`Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes) |
-| Headless UI (`Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, context-menu state, Top-100 window, colour modes and the free-space block, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process |
+| Unit (`tests/Tessera.Tests/Unit`) | Treemap layout invariants (area conservation, no overlap, proportionality — including seeded property tests over random trees), tree mutations, top-K selection vs a LINQ oracle, formatting, color hashing, shell-argument safety and the context-menu state matrix. Nothing here touches the disk or needs an application. |
+| Integration (`tests/Tessera.Tests/Integration`) | The scanner against real temp directories: exact counts, hidden/system files, unicode names, junctions (including a deliberate cycle), deny-ACL folders, cancellation, injected worker failures (the scan must always terminate), the `--scan` CLI in-process and as a real child process (totals and exit codes), free-space lookup, and the ShellOps paths that start a real process |
+| Headless UI (`tests/Tessera.Tests/Headless`) | Avalonia.Headless: treemap hit-testing and mouse events, tree↔treemap selection sync, drill/up navigation, Top-100 window, colour modes and the free-space block, the delete and rescan flows across their async boundaries, that a big layout renders repeatedly without killing the render pass, that the About window's embedded licence and notices are present and attribute every bundled component, and that a failing handler reports instead of terminating the process. Only tests that genuinely need a window live here. |
 
-The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves (junction-aware, ACE removal before delete). Recycle-bin deletion is intentionally left to manual testing.
+The suite never deletes anything it didn't create; fixtures build under `%TEMP%\TesseraTests_*` and clean up after themselves through one shared `TempDir`, which lifts deny-ACEs, removes junctions before any recursive walk, clears attributes and retries once. Recycle-bin deletion is intentionally left to manual testing.
 
 ## Architecture
 
 ```
-Program.cs               entry point; --scan CLI mode
-Models/FsNode.cs         lean scan-tree node (~70 B + name per entry; millions of files fit in RAM)
-Models/FsTreeOps.cs      UI-free tree mutations: delete splice, rescan splice, top-K
-Scanning/Scanner.cs      parallel enumerator-based scanner + aggregate/sort post-pass
-Scanning/ScanProgress.cs lock-free counters, polled by the UI on a timer
-UI/Squarify.cs           pure squarified-treemap layout algorithm + its geometric cutoffs
-UI/TreemapControl.cs     custom control: cached layout + cached scene bitmap, hit-testing
-UI/MainWindow.cs         toolbar, TreeDataGrid, treemap, selection-sync mediator
-UI/TopFilesWindow.cs     top-100 largest files list
-UI/ConfirmDialog.cs      hand-rolled modal confirm/message window
-UI/AboutWindow.cs        version, licence and third-party notices, from embedded resources
-UI/CrashHandler.cs       turns an unexpected exception into something readable
-Util/Format.cs           byte/percent formatting
-Util/ShellOps.cs         SHFileOperationW recycle-bin delete, Explorer reveal
+Tessera.slnx                       solution
+src/Tessera/                       the application
+  Program.cs                       entry point; --scan CLI mode
+  Models/FsNode.cs                 lean scan-tree node (~70 B + name per entry; millions of files fit in RAM)
+  Models/FsTreeOps.cs              UI-free tree mutations: delete splice, rescan splice, top-K
+  Scanning/Scanner.cs              parallel enumerator-based scanner + aggregate/sort post-pass
+  Scanning/ScanProgress.cs         lock-free counters, polled by the UI on a timer
+  Treemap/Squarify.cs              pure squarified-treemap layout algorithm + its geometric cutoffs
+  Treemap/TmRect.cs                one laid-out rectangle
+  Treemap/TreemapColorMode.cs      colour by nesting depth or by file extension
+  UI/TreemapControl.cs             custom control: cached layout + cached scene bitmap, hit-testing
+  UI/MainWindow.cs                 fields, seams, the error funnel, and the window's construction
+  UI/MainWindow.Scanning.cs        drive list, folder picking, the scan lifecycle
+  UI/MainWindow.Selection.cs       tree source, two-way selection sync, drill/up navigation
+  UI/MainWindow.Menus.cs           menu bar and context menu
+  UI/MainWindow.Operations.cs      delete, rescan, and the refresh after a mutation
+  UI/TopFilesWindow.cs             top-100 largest files list
+  UI/ConfirmDialog.cs              hand-rolled modal confirm/message window
+  UI/DeleteRequest.cs              what a delete confirmation is being asked about
+  UI/AboutWindow.cs                version, licence and third-party notices, from embedded resources
+  UI/CrashHandler.cs               turns an unexpected exception into something readable
+  Util/Format.cs                   byte/percent formatting
+  Util/ShellOps.cs                 SHFileOperationW recycle-bin delete, Explorer reveal
+  Util/ShellResult.cs              the outcome of one shell operation
+  Util/DiskSpace.cs                free bytes on a drive, for the free-space block
+tests/Tessera.Tests/               unit, integration and headless-UI layers
+docs/                              icon, screenshot, marketing copy
+LICENSE, THIRD-PARTY-NOTICES.txt   shipped beside the exe and embedded in it
 ```
 
 Design notes:

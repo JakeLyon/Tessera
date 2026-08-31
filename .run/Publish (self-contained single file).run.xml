@@ -4,7 +4,7 @@
          explicitly: publishing the solution also picks up Tessera.Tests, which cannot
          be single-file published (NETSDK1098). PublishTrimmed is unsupported by
          Avalonia - do not add it. Output lands in ./publish. -->
-    <option name="SCRIPT_TEXT" value="dotnet publish Tessera.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none --output publish" />
+    <option name="SCRIPT_TEXT" value="dotnet publish src/Tessera/Tessera.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none --output publish" />
     <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
     <option name="SCRIPT_PATH" value="" />
     <option name="SCRIPT_OPTIONS" value="" />

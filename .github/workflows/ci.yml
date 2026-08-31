@@ -55,7 +55,7 @@ jobs:
 
       - name: Publish self-contained single file
         run: >
-          dotnet publish Tessera.csproj
+          dotnet publish src/Tessera/Tessera.csproj
           --configuration Release
           --runtime win-x64
           --self-contained true

@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- Settings both projects share. Anything specific to what a project IS — the app's
+       shipping identity and Win32 resources, the test project's runner packages — stays
+       in its own csproj. This file is only for what would otherwise be written twice. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
