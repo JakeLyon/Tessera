@@ -1,0 +1,20 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Build (Release, warnaserror)" type="ShConfigurationType">
+    <!-- Mirrors the CI build step (.github/workflows/ci.yml): this project keeps
+         warnings at zero, and CI fails the build on any warning. Run this before
+         pushing to catch what a plain Debug build in the IDE lets through. -->
+    <option name="SCRIPT_TEXT" value="dotnet build Tessera.slnx --configuration Release -warnaserror" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="" />
+    <option name="SCRIPT_OPTIONS" value="" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="false" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="powershell.exe" />
+    <option name="INTERPRETER_OPTIONS" value="-NoProfile -Command" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="false" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

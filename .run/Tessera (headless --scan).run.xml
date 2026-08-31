@@ -1,0 +1,25 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Tessera (headless --scan)" type="DotNetProject" factoryName=".NET Project">
+    <option name="EXE_PATH" value="$PROJECT_DIR$/bin/Debug/net10.0/Tessera.exe" />
+    <!-- CLI mode: prints "files=N dirs=N bytes=N errors=N" and exits without a window.
+         Exit codes: 0 ok, 2 usage error, 3 scan failure. -->
+    <option name="PROGRAM_PARAMETERS" value="--scan &quot;C:\Program Files\dotnet&quot;" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/bin/Debug/net10.0" />
+    <option name="PASS_PARENT_ENVS" value="1" />
+    <!-- Keep the run window: Tessera is a WinExe with no console of its own, and
+         Rider's redirected pipes are what make its output visible here. An external
+         console closes on exit and loses the totals. -->
+    <option name="USE_EXTERNAL_CONSOLE" value="0" />
+    <option name="USE_MONO" value="0" />
+    <option name="RUNTIME_ARGUMENTS" value="" />
+    <option name="PROJECT_PATH" value="$PROJECT_DIR$/Tessera.csproj" />
+    <option name="PROJECT_EXE_PATH_TRACKING" value="1" />
+    <option name="PROJECT_ARGUMENTS_TRACKING" value="0" />
+    <option name="PROJECT_WORKING_DIRECTORY_TRACKING" value="1" />
+    <option name="PROJECT_KIND" value="DotNetCore" />
+    <option name="PROJECT_TFM" value="net10.0" />
+    <method v="2">
+      <option name="Build" />
+    </method>
+  </configuration>
+</component>
