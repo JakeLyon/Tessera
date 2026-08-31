@@ -56,4 +56,11 @@ internal sealed class FsNode
 
     /// <summary>Extension including the dot, lower-cased; empty for directories/extensionless files.</summary>
     public string Extension => IsDir ? "" : Path.GetExtension(Name).ToLowerInvariant();
+
+    /// <summary>
+    /// Size descending — the order every <see cref="Children"/> array is kept in. It lives
+    /// here because that invariant belongs to the node: the scanner establishes it and
+    /// every mutation restores it, and both used to declare this comparer for themselves.
+    /// </summary>
+    public static readonly Comparison<FsNode> SizeDescending = (a, b) => b.Size.CompareTo(a.Size);
 }

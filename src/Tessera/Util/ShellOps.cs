@@ -155,32 +155,30 @@ internal static class ShellOps
     }
 
     /// <summary>Run a helper to completion. A missing binary is a failure, not an exception.</summary>
-    internal static ShellResult RunAndWait(ProcessStartInfo psi, string tool)
+    internal static ShellResult RunAndWait(ProcessStartInfo psi, string tool) => Run(psi, tool, wait: true);
+
+    /// <summary>Start a helper without waiting. A missing binary is a failure, not an exception.</summary>
+    private static ShellResult RunNoWait(ProcessStartInfo psi, string tool) => Run(psi, tool, wait: false);
+
+    /// <summary>
+    /// Start a helper, optionally to completion. A missing binary is a failure, not an
+    /// exception — the whole point of returning <see cref="ShellResult"/> is that a shell
+    /// that is absent or refuses is a message to the user, never a crash.
+    /// </summary>
+    private static ShellResult Run(ProcessStartInfo psi, string tool, bool wait)
     {
         try
         {
             using var process = Process.Start(psi);
             if (process is null)
                 return ShellResult.Fail($"{tool} could not be started.");
+            if (!wait)
+                return ShellResult.Success;
+
             process.WaitForExit();
             return process.ExitCode == 0
                 ? ShellResult.Success
                 : ShellResult.Fail($"{tool} exited with code {process.ExitCode}.");
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
-                                      or PlatformNotSupportedException or IOException)
-        {
-            return ShellResult.Fail($"{tool} is not available: {ex.Message}");
-        }
-    }
-
-    /// <summary>Start a helper without waiting. A missing binary is a failure, not an exception.</summary>
-    private static ShellResult RunNoWait(ProcessStartInfo psi, string tool)
-    {
-        try
-        {
-            using var process = Process.Start(psi);
-            return process is null ? ShellResult.Fail($"{tool} could not be started.") : ShellResult.Success;
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
                                       or PlatformNotSupportedException or IOException)

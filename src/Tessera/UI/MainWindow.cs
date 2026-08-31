@@ -77,6 +77,14 @@ internal sealed class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// <see cref="Guarded(string, Func{Task})"/> for a handler whose body is synchronous.
+    /// Most of them are, and wrapping each one in a lambda that returns Task.CompletedTask
+    /// was pure ceremony.
+    /// </summary>
+    internal void Guarded(string what, Action body) =>
+        Guarded(what, () => { body(); return Task.CompletedTask; });
+
     public MainWindow()
     {
         Title = "Tessera — Disk Space Analyzer";
@@ -114,7 +122,6 @@ internal sealed class MainWindow : Window
         {
             if (_scanRoot is not null)
                 new TopFilesWindow(_scanRoot).Show(this);
-            return Task.CompletedTask;
         });
 
         _crumb = new TextBlock
@@ -438,11 +445,7 @@ internal sealed class MainWindow : Window
                 GroupName = "TreemapColour",
                 IsChecked = choice.Mode == _treemap.ColorMode,
             };
-            item.Click += (_, _) => Guarded("Changing colours", () =>
-            {
-                _treemap.ColorMode = captured.Mode;
-                return Task.CompletedTask;
-            });
+            item.Click += (_, _) => Guarded("Changing colours", () => _treemap.ColorMode = captured.Mode);
             colour.Items.Add(item);
             _colorItems.Add(item);
         }
@@ -455,11 +458,7 @@ internal sealed class MainWindow : Window
             ToggleType = MenuItemToggleType.CheckBox,
             IsChecked = _treemap.ShowFreeSpace,
         };
-        FreeSpaceMenuItem.Click += (_, _) => Guarded("Toggling free space", () =>
-        {
-            _treemap.ShowFreeSpace = FreeSpaceMenuItem.IsChecked;
-            return Task.CompletedTask;
-        });
+        FreeSpaceMenuItem.Click += (_, _) => Guarded("Toggling free space", () => _treemap.ShowFreeSpace = FreeSpaceMenuItem.IsChecked);
 
         var view = new MenuItem { Header = "_View" };
         view.Items.Add(colour);
@@ -469,11 +468,7 @@ internal sealed class MainWindow : Window
         // The exe is routinely moved on its own, away from the files beside it, so this
         // is what the attribution actually travels in.
         AboutMenuItem = new MenuItem { Header = "_About Tessera" };
-        AboutMenuItem.Click += (_, _) => Guarded("Opening About", () =>
-        {
-            new AboutWindow().Show(this);
-            return Task.CompletedTask;
-        });
+        AboutMenuItem.Click += (_, _) => Guarded("Opening About", () => new AboutWindow().Show(this));
         var help = new MenuItem { Header = "_Help" };
         help.Items.Add(AboutMenuItem);
 
@@ -526,7 +521,6 @@ internal sealed class MainWindow : Window
         top.Click += (_, _) => Guarded("Opening the top files list", () =>
         {
             if (_ctxNode is { IsDir: true } n) new TopFilesWindow(n).Show(this);
-            return Task.CompletedTask;
         });
 
         var menu = new ContextMenu

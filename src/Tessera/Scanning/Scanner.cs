@@ -32,8 +32,6 @@ internal static class Scanner
         RecurseSubdirectories = false,
     };
 
-    private static readonly Comparison<FsNode> s_sizeDesc = (a, b) => b.Size.CompareTo(a.Size);
-
     /// <summary>
     /// Test seam: called with each directory path as a worker picks it up, so a test can
     /// inject the failures real filesystems produce too rarely to reproduce on demand.
@@ -217,7 +215,7 @@ internal static class Scanner
                 foreach (var c in children)
                     sum += c.Size;
                 node.Size = sum;
-                Array.Sort(children, s_sizeDesc);
+                Array.Sort(children, FsNode.SizeDescending);
             }
         }
     }

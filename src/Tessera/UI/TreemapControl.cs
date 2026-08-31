@@ -406,31 +406,30 @@ internal sealed class TreemapControl : Control
             if (!tm.IsLeaf)
                 continue;
 
-            var text = new FormattedText(tm.Node.Name, System.Globalization.CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight, s_typeface, 11,
-                tm.Node.IsDir ? s_dirLabelBrush : s_labelBrush)
-            {
-                MaxTextWidth = Math.Max(4, b.Width - 6),
-                MaxTextHeight = Math.Max(4, b.Height - 2),
-                Trimming = TextTrimming.CharacterEllipsis,
-                MaxLineCount = 1,
-            };
-            ctx.DrawText(text, new Point(b.X + 3, b.Y + 1));
+            DrawLabel(ctx, b, tm.Node.Name, tm.Node.IsDir ? s_dirLabelBrush : s_labelBrush);
         }
 
         if (_freeRect.Width >= 44 && _freeRect.Height >= 15 && _freeSpaceBytes is { } free)
         {
-            var label = new FormattedText($"Free space — {Format.Bytes(free)}",
-                System.Globalization.CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight, s_typeface, 11, s_dirLabelBrush)
-            {
-                MaxTextWidth = Math.Max(4, _freeRect.Width - 6),
-                MaxTextHeight = Math.Max(4, _freeRect.Height - 2),
-                Trimming = TextTrimming.CharacterEllipsis,
-                MaxLineCount = 1,
-            };
-            ctx.DrawText(label, new Point(_freeRect.X + 3, _freeRect.Y + 1));
+            DrawLabel(ctx, _freeRect, $"Free space — {Format.Bytes(free)}", s_dirLabelBrush);
         }
+    }
+
+    /// <summary>
+    /// One line of text clipped to a rectangle, ellipsised if it does not fit. Callers
+    /// have already checked the rectangle is big enough to be worth labelling.
+    /// </summary>
+    private static void DrawLabel(DrawingContext ctx, Rect bounds, string text, IBrush brush)
+    {
+        var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight, s_typeface, 11, brush)
+        {
+            MaxTextWidth = Math.Max(4, bounds.Width - 6),
+            MaxTextHeight = Math.Max(4, bounds.Height - 2),
+            Trimming = TextTrimming.CharacterEllipsis,
+            MaxLineCount = 1,
+        };
+        ctx.DrawText(formatted, new Point(bounds.X + 3, bounds.Y + 1));
     }
 
     /// <summary>

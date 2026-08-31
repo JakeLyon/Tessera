@@ -8,8 +8,6 @@ namespace Tessera.Models;
 /// </summary>
 internal static class FsTreeOps
 {
-    private static readonly Comparison<FsNode> s_sizeDesc = (a, b) => b.Size.CompareTo(a.Size);
-
     /// <summary>Add <paramref name="delta"/> to every ancestor and keep sibling arrays sorted.</summary>
     public static void PropagateSizeDelta(FsNode? from, long delta)
     {
@@ -17,7 +15,7 @@ internal static class FsTreeOps
         {
             a.Size += delta;
             if (a.Parent?.Children is { } siblings)
-                Array.Sort(siblings, s_sizeDesc);
+                Array.Sort(siblings, FsNode.SizeDescending);
         }
     }
 
