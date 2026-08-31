@@ -7,9 +7,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <ApplicationIcon>docs\tessera.ico</ApplicationIcon>
-    <!-- Tessera.Tests lives in a subfolder; keep its sources out of the app's default glob. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tessera.Tests\**</DefaultItemExcludes>
+    <ApplicationIcon>..\..\docs\tessera.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Shipping identity. These populate the Win32 version resource, which is what
@@ -58,10 +56,10 @@
        LogicalName is pinned so the resource keys do not depend on MSBuild's path
        mangling; AboutWindow looks them up by these exact names. -->
   <ItemGroup>
-    <None Include="LICENSE" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <EmbeddedResource Include="LICENSE" LogicalName="Tessera.LICENSE" Visible="false" />
-    <EmbeddedResource Include="THIRD-PARTY-NOTICES.txt" LogicalName="Tessera.THIRD-PARTY-NOTICES.txt" Visible="false" />
+    <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="Tessera.LICENSE" Visible="false" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="Tessera.THIRD-PARTY-NOTICES.txt" Visible="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Tessera.Tests" />
